@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Data Doctor — InsightFlow agent — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        page('Doctor', () => {
+            const f = st.get('if_files', []); const iss = [['Missing values', '12 blank cells in revenue column', 'Medium'], ['Duplicate rows', '4 repeated order IDs', 'High'], ['Type mismatch', 'Date stored as text in 2 files', 'Low']];
+            return `<h1 class="ht">Data Doctor</h1><p class="lead">Scans your uploaded files for missing values, duplicates and wrong types.</p>${kp([['Files scanned', f.length, 'From Data page'], ['Issues found', iss.length, 'Needs review'], ['Health score', '86%', 'Good']])}
+<div class="pn"><h3>Issues</h3><div class="tw"><table><tr><th>Check</th><th>Detail</th><th>Severity</th></tr>${iss.map(i => `<tr><td>${i[0]}</td><td>${i[1]}</td><td><span class="tag">${i[2]}</span></td></tr>`).join('')}</table></div><p><a class="btn" href="data.html">Upload files</a> <a class="btn solid" href="unify.html">Continue to Unify</a></p></div>`
+        })
+    </script>
+</body>
+
+</html>

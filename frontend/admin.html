@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>CFO approvals — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        const BTN = 'padding:7px 16px;font-size:.85rem';
+        const fd = d => d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+        const who = c => `<b>${esc(c.name || '—')}</b><br><small style="color:var(--mut)">${esc(c.email)}</small>`;
+        const co = c => `<b>${esc(c.company_name || '—')}</b><br><small style="color:var(--mut)">@${esc(c.company_domain || '')}</small>`;
+
+        page('Admin', u => `<div class="home-top"></div>
+<div><span class="eye">Admin console</span><h1 class="ht" style="font-size:2.3rem">CFO approvals</h1><p class="lead">Check each CFO's license document, then approve or reject. They are emailed as soon as you decide.</p></div>
+<div class="mini" style="margin-top:18px">
+<div class="sc"><small>Pending review</small><b id="k1">–</b><span>Waiting for your decision</span></div>
+<div class="sc"><small>Approved CFOs</small><b id="k2">–</b><span>Can access their dashboard</span></div>
+<div class="sc"><small>Regional managers</small><b id="k3">–</b><span>Invited by CFOs and verified</span></div>
+<div class="sc"><small>Live updates</small><b id="k4">Connecting…</b><span>New sign-ups appear instantly</span></div></div>
+<div class="pn"><h3>Pending approvals</h3><div class="tw" id="pt"><p style="color:var(--mut)">Loading…</p></div></div>
+<div class="pn"><h3>Approved CFOs</h3><div class="tw" id="at"><p style="color:var(--mut)">Loading…</p></div></div>`,
+            () => {
+                const setLive = on => { $('#k4').textContent = on ? 'Connected' : 'Reconnecting…' };
+
+                async function load() {
+                    let d; try { d = await IF.api('/api/auth/admin/cfos', { auth: true }) } catch (e) { $('#pt').innerHTML = `<p class="err">${esc(e.message)}</p>`; return }
+                    $('#k1').textContent = d.stats.pending; $('#k2').textContent = d.stats.approved; $('#k3').textContent = d.stats.managers;
+                    const pend = d.cfos.filter(c => !c.is_approved), appr = d.cfos.filter(c => c.is_approved);
+
+                    $('#pt').innerHTML = pend.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>Issued</th><th>Expires</th><th>Document</th><th class="r">Decision</th></tr>${pend.map(c => `<tr>
+<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number || '—')}</td><td>${fd(c.license_issue_date)}</td><td>${fd(c.license_expiry_date)}</td>
+<td>${c.has_license_file ? `<button class="btn" style="${BTN}" data-a="view" data-id="${c.id}">View license</button>` : '—'}</td>
+<td class="r"><button class="btn solid" style="${BTN}" data-a="ok" data-id="${c.id}">Approve</button> <button class="btn" style="${BTN}" data-a="no" data-id="${c.id}">Reject</button></td></tr>`).join('')}</table>`
+                        : '<p style="color:var(--mut)">No CFOs are waiting for approval. You are all caught up.</p>';
+
+                    $('#at').innerHTML = appr.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>License expires</th><th>Status</th></tr>${appr.map(c => `<tr>
+<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number || '—')}</td><td>${fd(c.license_expiry_date)}</td><td><span class="tag">Approved</span></td></tr>`).join('')}</table>`
+                        : '<p style="color:var(--mut)">No approved CFOs yet.</p>';
+                }
+
+                /* View / Approve / Reject buttons */
+                $('#pg').addEventListener('click', async e => {
+                    const b = e.target.closest('button[data-a]'); if (!b) return; const id = +b.dataset.id, a = b.dataset.a;
+                    try {
+                        if (a === 'view') return await IF.openProtectedFile('/api/auth/admin/download-license/' + id);
+                        if (a === 'no' && !confirm('Reject this registration? The CFO is emailed and the account is removed.')) return;
+                        b.closest('tr').querySelectorAll('button').forEach(x => x.disabled = true);
+                        const r = await IF.api('/api/auth/admin/approve-license', { method: 'POST', auth: true, json: { cfo_id: id, is_valid: a === 'ok' } });
+                        IF.toast(r.message + (r.email_sent === false ? ' (email could not be sent)' : a === 'ok' ? ' Approval email sent.' : ''), r.email_sent === false);
+                        load();
+                    } catch (ex) { IF.toast(ex.message, true); load() }
+                });
+
+                /* live push: a new CFO signs up -> toast + refresh the list */
+                function live() {
+                    const s = IF.getSession(); if (!s) return; let ws;
+                    try { ws = new WebSocket(IF.wsUrl('/api/auth/admin/ws?token=' + encodeURIComponent(s.token))) } catch (e) { return }
+                    ws.onopen = () => setLive(true);
+                    ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data) } catch (e) { m = { message: ev.data } } IF.toast(m.message || 'New activity'); load() };
+                    ws.onclose = () => { setLive(false); setTimeout(live, 3000) };
+                }
+                load(); live();
+            });
+    </script>
+</body>
+
+</html>

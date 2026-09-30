@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Sign in — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body><iframe class="bgsite" src="index.html" title="" aria-hidden="true" tabindex="-1"></iframe>
+    <div class="bgveil"></div>
+    <div class="authpg"><a class="back" href="index.html">&larr; Back to site</a>
+        <div class="pop">
+            <div class="tabs" role="tablist"><span class="ind" id="ind"></span><button id="tl" role="tab"
+                    aria-selected="true" onclick="tab('login')">Sign in</button><button id="tr" role="tab"
+                    aria-selected="false" onclick="tab('register')">Create account</button></div>
+            <div id="lp">
+                <h3>Welcome back</h3>
+                <p class="s">Sign in with your email and password.</p>
+                <form id="lf">
+                    <div class="f"><label for="le">Email</label><input id="le" type="email" required
+                            placeholder="name@company.com"></div>
+                    <div class="f"><label for="lw">Password</label><input id="lw" type="password" required
+                            minlength="6"></div>
+                    <div class="kr"><label class="ks" for="lk"><input id="lk" type="checkbox" checked><span
+                                class="tg"></span>Keep me signed in</label><a class="fg2" onclick="tab('forgot')"
+                            tabindex="0" role="button">Forgot password?</a></div>
+                    <p class="err" id="le2" role="alert"></p><button class="btn solid">Sign in</button>
+                </form>
+                <div class="sw">New to InsightFlow? <a onclick="tab('register')">Create an account</a></div>
+                <div class="sw" style="margin-top:6px">Invited as a regional manager? <a href="verify.html">Enter your code</a></div>
+            </div>
+            <div id="rp" hidden>
+                <h3>Create your account</h3>
+                <p class="s">Add your license details so we can verify you.</p>
+                <form id="rf">
+                    <div class="f"><label for="rn">Full name</label><input id="rn" required
+                            placeholder="Your full name"></div>
+                    <div class="f"><label for="rco">Company name</label><input id="rco" required
+                            placeholder="Your company name"></div>
+                    <div class="f"><label for="re">Email</label><input id="re" type="email" required
+                            placeholder="name@company.com"></div>
+                    <div class="f"><label for="rl">License number</label><input id="rl" required
+                            placeholder="e.g. LIC-2024-58213"></div>
+                    <div class="g2">
+                        <div class="f"><label for="ri">Issue date</label><input id="ri" type="date" required></div>
+                        <div class="f"><label for="rx">Expiry date</label><input id="rx" type="date" required></div>
+                    </div>
+                    <div class="f"><label>License document</label>
+                        <div class="drop" id="dz" tabindex="0" role="button" aria-label="Upload license document"><input
+                                id="rd" type="file" accept=".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png"
+                                hidden>
+                            <div id="dt"><b>Choose a file</b> or drag it here<small>PDF, JPG or PNG, up to 5 MB</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="g2">
+                        <div class="f"><label for="rw">Password</label>
+                            <div class="pw"><input id="rw" type="password" required minlength="6"
+                                    placeholder="At least 6 characters"><button type="button" class="sh"
+                                    data-t="rw">Show</button></div>
+                        </div>
+                        <div class="f"><label for="rc">Confirm password</label>
+                            <div class="pw"><input id="rc" type="password" required
+                                    placeholder="Repeat your password"><button type="button" class="sh"
+                                    data-t="rc">Show</button></div>
+                        </div>
+                    </div>
+                    <p class="err" id="re2" role="alert"></p><button class="btn solid">Create account</button>
+                </form>
+                <div class="sw">Already registered? <a onclick="tab('login')">Sign in</a></div>
+            </div>
+            <div id="fp" hidden>
+                <h3>Reset password</h3>
+                <p class="s">Enter your account email and choose a new password.</p>
+                <form id="ff">
+                    <div class="f"><label for="fe">Email</label><input id="fe" type="email" required
+                            placeholder="name@company.com"></div>
+                    <div class="f"><label for="fw">New password</label>
+                        <div class="pw"><input id="fw" type="password" required minlength="6"
+                                placeholder="At least 6 characters"><button type="button" class="sh"
+                                data-t="fw">Show</button></div>
+                    </div>
+                    <div class="f"><label for="fc">Confirm new password</label>
+                        <div class="pw"><input id="fc" type="password" required
+                                placeholder="Repeat new password"><button type="button" class="sh"
+                                data-t="fc">Show</button></div>
+                    </div>
+                    <p class="err" id="fe2" role="alert"></p><button class="btn solid">Reset password</button>
+                </form>
+                <div class="sw">Remembered it? <a onclick="tab('login')">Back to sign in</a></div>
+            </div>
+        </div>
+    </div>
+    <script src="api.js"></script>
+    <script src="auth.js"></script>
+</body>
+
+</html>

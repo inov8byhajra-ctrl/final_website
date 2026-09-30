@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Profit & Loss — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        page('PL', () => {
+            const r = pl(), mx = Math.max(...REV), sum = i => r.reduce((a, x) => a + x[i], 0), T = sum(1), C = sum(2), G = sum(3), N = sum(5), l = r[r.length - 1];
+            const sp = a => { const m = Math.max(...a), n = Math.min(...a); return `<svg viewBox="0 0 100 30" preserveAspectRatio="none"><polyline class="lp" fill="none" stroke="#9A2C3E" stroke-width="1.6" points="${a.map((v, i) => `${i * 100 / (a.length - 1)},${28 - (v - n) / (m - n || 1) * 24}`).join(' ')}"/></svg>` };
+            return `<div class="hg"><div><h1 class="ht">Profit and loss</h1><p class="lead">Turn uploaded business data into a clear financial picture. Revenue, COGS, gross profit and net profit are calculated automatically ($K).</p>
+<div class="win"><div class="in"><small class="eye">Current net profit · ${M[M.length - 1]}</small><strong style="display:block;font:600 2.6rem var(--disp);color:var(--wine)">$${l[5]}K</strong><small>after operating costs &amp; taxes</small><div class="prog" style="margin:14px 0 6px"><i style="width:${(N / T * 100).toFixed(0)}%"></i></div><small>Net margin ${(N / T * 100).toFixed(1)}%</small></div></div></div><div class="stage2">${ORB([`$${T}K revenue`, `+${((REV[REV.length - 1] / REV[0] - 1) * 100).toFixed(1)}% since ${M[0]}`, `${(N / T * 100).toFixed(1)}% margin`], 'Net profit', '$' + N + 'K')}</div></div>
+<div class="mini">${[['Total revenue', T, REV], ['COGS', C, COG], ['Gross profit', G, r.map(x => x[3])], ['Net profit', N, r.map(x => x[5])]].map(k => `<div class="sc"><small>${k[0]}</small><b>$${k[1]}K</b>${sp(k[2])}</div>`).join('')}</div>
+<div class="pn"><h3>Monthly P&amp;L breakdown</h3><div class="bars2">${r.map(x => `<div><i class="b1" style="height:${x[3] / mx * 100}%"></i><i class="b2" style="height:${x[1] / mx * 100}%"></i></div>`).join('')}</div><div class="bl">${M.map(m => `<span>${m}</span>`).join('')}</div></div>
+<div class="pn"><small class="eye">Cache status</small> <span class="tag">Redis cache: HIT</span> <small>Response 4ms · cached 12 min ago</small></div>`}, () => { draw(); gsap.from('.bars2 i', { scaleY: 0, transformOrigin: 'bottom', duration: .9, stagger: .05, delay: .4, ease: 'power3.out', clearProps: 'transform' }) })
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Security — InsightFlow agent — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        page('Security', u => `<div class="hg"><div><h1 class="ht">Enterprise Security</h1><p class="lead">Multi-layer authentication, encrypted credentials and role-based access keep your InsightFlow workspace protected. Every sensitive action is tracked through a real-time audit layer.</p><div class="st3"><div class="sc"><small>Auth method</small><b>JWT + bcrypt</b><span>Token expires in 24h</span></div><div class="sc"><small>Active sessions</small><b>1</b><span>${esc(u.e)}</span></div><div class="sc"><small>Audit log entries</small><b>1,284</b><span>Last 30 days</span></div></div></div>
+<div class="stage2">${SHIELD()}</div></div>
+<div class="pn"><small class="eye">RBAC permissions matrix</small><div class="tw"><table><tr><th>Role</th><th>All data</th><th>Own region</th><th>Read-only</th><th>Upload</th><th>Export</th></tr><tr><td><span class="rl">CFO</span></td><td>✓ Full</td><td>✓</td><td>—</td><td>✓</td><td>✓</td></tr><tr><td><span class="rl m">Manager</span></td><td>✗</td><td>✓ Assigned</td><td>—</td><td>Partial</td><td>Partial</td></tr><tr><td><span class="rl a">Analyst</span></td><td>✗</td><td>✗</td><td>✓ Read-only</td><td>✗</td><td>✗</td></tr></table></div></div>
+<div class="dk"><h3>Real-time audit log · live monitoring</h3><div class="tw"><table>${[['14:22:01', 'cfo@insightflow', 'Viewed full revenue dashboard — all regions', '192.168.1.10'], ['14:19:44', 'mgr@west', 'Uploaded q1_sales.xlsx — assigned region', '192.168.1.22'], ['14:15:08', 'analyst@insightflow', 'Read-only BI query: “Top customers by revenue”', '192.168.1.31'], ['14:12:33', 'cfo@insightflow', 'Advisory agent triggered — post-upload', '192.168.1.10'], ['14:08:17', 'system', 'JWT token refreshed for mgr@west', '—']].map(r => `<tr><td>${r[0]}</td><td><b>${r[1]}</b></td><td>${r[2]}</td><td class="r">${r[3]}</td></tr>`).join('')}</table></div><p><button class="btn" onclick="signOut()">Sign out</button></p></div>`)
+    </script>
+</body>
+
+</html>

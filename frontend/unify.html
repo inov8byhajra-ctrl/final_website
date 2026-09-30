@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Unify — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        page('Unify', () => {
+            const f = st.get('if_files', []).filter(x => x.ok), src = f.length ? f.slice(0, 4).map(x => [x.name, x.rows + ' rows']) : [['jan_2026.csv', '4,821 rows'], ['feb_2026.csv', '4,103 rows'], ['mar_2026.csv', '5,241 rows'], ['q2_2026.xlsx', '14,882 rows']];
+            return `<h1 class="ht">Annual unification</h1><p class="lead">InsightFlow brings monthly and quarterly data into one clean annual dataset — detecting structural differences, transforming mismatched fields and validating the contract before it enters PostgreSQL. ${f.length ? '' : '<a href="data.html" style="color:var(--acc);font-weight:700">Upload files</a>'}</p>
+<div class="two" style="grid-template-columns:1.6fr 1fr"><div class="pn"><small class="eye">Source workspace · automated data journey</small><div class="flow"><div>${src.map(s => `<div class="fcd"><b>${esc(s[0])}</b><small>${esc(s[1])}</small></div>`).join('')}</div><div class="hub"><div>✦<br>Unify<small>MAP · MERGE · VALIDATE</small></div></div></div>
+<button class="btn solid" id="mb">Merge and validate</button><div class="prog" style="margin-top:14px"><i id="mp"></i></div><p id="mt" class="lead" style="margin:10px 0 0">${st.get('if_unified', false) ? 'Annual dataset already merged and validated.' : ''}</p></div>
+<div><div class="pn"><h3>Your complete 2026 dataset.</h3><div class="fcd"><b>annual_2026_unified.csv</b><span class="tag">READY</span></div><small>Destination</small> <b style="float:right">PostgreSQL</b></div>
+<div class="dk"><small class="eye" style="color:#e4c6c9">Quality layer · Great Expectations</small><h3>Schema contract validation</h3><table><tr><th>Column</th><th>Jan</th><th>Mar</th><th>Status</th></tr><tr><td>revenue</td><td>float64</td><td>float64</td><td>✓</td></tr><tr><td>order_date</td><td>datetime</td><td>object</td><td>▲</td></tr><tr><td>region</td><td>category</td><td>category</td><td>✓</td></tr><tr><td>sales_rep</td><td>—</td><td>object</td><td>▲</td></tr></table></div></div></div>`},
+            () => { if (st.get('if_unified', false)) $('#mp').style.width = '100%'; $('#mb').onclick = () => { $('#mt').textContent = 'Merging files…'; gsap.fromTo('#mp', { width: 0 }, { width: '100%', duration: 2.2, ease: 'power1.inOut', onComplete: () => { st.set('if_unified', true); $('#mt').innerHTML = 'Done. 2026 dataset validated and saved to PostgreSQL. <a href="pnl.html" style="color:var(--acc);font-weight:700">View P&amp;L</a>' } }) } })
+    </script>
+</body>
+
+</html>

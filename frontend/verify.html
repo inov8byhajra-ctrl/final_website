@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Verify your invitation — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body><iframe class="bgsite" src="index.html" title="" aria-hidden="true" tabindex="-1"></iframe>
+    <div class="bgveil"></div>
+    <div class="authpg"><a class="back" href="index.html">&larr; Back to site</a>
+        <div class="pop">
+            <h3>Verify your invitation</h3>
+            <p class="s">Paste the 6-digit code from your invitation email, then choose a password.</p>
+            <form id="vf">
+                <div class="f"><label for="ve">Company email</label><input id="ve" type="email" required
+                        placeholder="name@company.com" autocomplete="email"></div>
+                <div class="f"><label for="vo">Verification code (OTP)</label><input id="vo" required inputmode="numeric"
+                        autocomplete="one-time-code" placeholder="123456"
+                        style="font-size:1.5rem;font-weight:700;letter-spacing:.45em;text-align:center"></div>
+                <div class="g2">
+                    <div class="f"><label for="vw">Password</label>
+                        <div class="pw"><input id="vw" type="password" required minlength="6"
+                                placeholder="At least 6 characters" autocomplete="new-password"><button type="button"
+                                class="sh" data-t="vw">Show</button></div>
+                    </div>
+                    <div class="f"><label for="vc">Confirm password</label>
+                        <div class="pw"><input id="vc" type="password" required placeholder="Repeat your password"
+                                autocomplete="new-password"><button type="button" class="sh" data-t="vc">Show</button>
+                        </div>
+                    </div>
+                </div>
+                <p class="err" id="ve2" role="alert"></p><button class="btn solid">Verify &amp; open dashboard</button>
+            </form>
+            <div class="sw">Already verified? <a href="login.html">Sign in</a></div>
+        </div>
+    </div>
+    <script src="api.js"></script>
+    <script>
+        const $ = s => document.querySelector(s);
+        const q = new URLSearchParams(location.search);
+
+        /* already signed in -> nothing to verify */
+        { const s = IF.getSession(); if (s && s.token && !IF.tokenExpired(s.token)) location.replace(IF.homeFor(s.role)) }
+
+        /* the email link carries ?email=... so the manager only needs to paste the code */
+        if (q.get('email')) {
+            $('#ve').value = q.get('email');
+            IF.toast('We emailed a 6-digit code to ' + q.get('email') + '. Paste it below.');
+            $('#vo').focus();
+        }
+
+        /* accept a pasted code in any shape ("123 456", "OTP: 123456") - keep the digits only */
+        $('#vo').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6) });
+
+        document.querySelectorAll('.sh').forEach(b => b.onclick = () => { const i = $('#' + b.dataset.t), s = i.type === 'password'; i.type = s ? 'text' : 'password'; b.textContent = s ? 'Hide' : 'Show' });
+
+        $('#vf').onsubmit = async e => {
+            e.preventDefault(); const er = $('#ve2'), btn = e.target.querySelector('button.solid'); er.textContent = '';
+            const otp = $('#vo').value.replace(/\D/g, '');
+            if (otp.length !== 6) return er.textContent = 'Please enter the full 6-digit code.';
+            if ($('#vw').value !== $('#vc').value) return er.textContent = 'Passwords do not match.';
+            btn.disabled = true; const label = btn.textContent; btn.textContent = 'Verifying…';
+            try {
+                const d = await IF.api('/api/auth/manager/signup', { method: 'POST', json: { email: $('#ve').value.trim().toLowerCase(), otp_code: otp, password: $('#vw').value } });
+                IF.saveLogin(d, true);           /* verified = signed in, straight to the dashboard */
+                location.href = 'home.html';
+            } catch (ex) { er.textContent = ex.message; btn.disabled = false; btn.textContent = label }
+        };
+    </script>
+</body>
+
+</html>

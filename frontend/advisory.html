@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Advisory agent — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        page('Advisory', () => `<h1 class="ht">Advisory Agent</h1><p class="lead">A two-node graph runs the moment new data lands: one node looks for what changed, the other writes down what to do about it.</p>
+<div class="al">● Detection node is scanning the latest upload · <i>LangSmith trace active</i></div>
+<div class="two" style="grid-template-columns:1.7fr 1fr"><div>${[['West region revenue is down 18.3% week over week', 'Statistically significant decline flagged; three top accounts went inactive in the past seven days. Send a reactivation email to accounts above $10K lifetime value.', 'View accounts', 'dashboard.html', ''], ['Technology is outperforming forecast by 24%', 'Promotional elasticity looks higher than modelled. Worth another $8,000 in ad spend while the momentum holds.', 'See forecast', 'forecast.html', 'hl'], ['Data drift detected — the model should be retrained', 'Significant drift in revenue and profit. Retrain on recent data to bring MAPE back to baseline.', 'Trigger retrain', 'forecast.html', ''], ['Opex up 3 months in a row', 'Cloud compute is the driver. Review autoscaling limits before the next billing cycle.', 'See P&L', 'pnl.html', '']].map(a => `<div class="ai ${a[4]}"><h3>${a[0]}</h3><p>${a[1]}</p><a class="btn" href="${a[3]}">${a[2]}</a></div>`).join('')}</div>
+<div><div class="dk"><h3>Pipeline</h3><ul class="tl"><li><b>0 · Ingest</b><small>Receives the upload event.</small></li><li><b>1 · Detection</b><small>Scans for anomalies with an isolation forest.</small></li><li><b>2 · Recommendation</b><small>Writes advice for each anomaly.</small></li></ul></div><div class="pn" style="margin-top:18px"><h3>Session memory</h3><small>Context held across all advisories above. ✓ 3,241 tokens</small></div></div></div>`)
+    </script>
+</body>
+
+</html>

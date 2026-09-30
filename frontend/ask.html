@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Ask — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        page('Ask', () => `<div class="hg" style="grid-template-columns:1.3fr 1fr"><h1 class="ht" style="font-size:clamp(2.6rem,6vw,4.4rem)">Ask your data </h1><p class="lead">Ask questions the way you naturally think about your business. InsightFlow translates your intent into SQL, retrieves the right schema, validates the query and delivers a clear answer. <b>Every step stays traceable.</b></p></div>
+<div class="two" style="grid-template-columns:1.7fr 1fr"><div class="win"><header><span><b>InsightFlow BI</b> · connected to PostgreSQL</span><span>LangSmith tracing · ON</span></header><div class="in"><div class="chat" id="ch" aria-live="polite"><div class="m a">Hello — I’m connected to your InsightFlow database and answer business questions with text-to-SQL. What would you like to know?</div></div>
+<div>${['Revenue by region', 'Top month by profit', 'What is my margin?'].map(x => `<button class="chip" onclick="Q('${x}')">${x}</button>`).join('')}</div>
+<form class="ask" onsubmit="event.preventDefault();Q($('#qi').value);$('#qi').value=''"><input id="qi" placeholder="Ask a business question..." aria-label="Question"><button class="btn solid">↑</button></form></div></div>
+<div><div class="dk"><h3>LangSmith trace</h3><div class="tr"><span>ChromaDB retrieval</span><b>12ms</b></div><div class="tr"><span>OpenAI SQL gen</span><b>840ms</b></div><div class="tr"><span>PostgreSQL exec</span><b>8ms</b></div><div class="tr"><span>✓ Total</span><b>860ms</b></div></div>
+<div class="pn" style="margin-top:18px"><small class="eye">Accuracy benchmark</small><b style="display:block;font:600 2.4rem var(--disp);color:var(--wine)">27/30</b><small>Correct answers on a 30-question evaluation. Self-correction recovered all 3 failed SQL attempts.</small><div class="prog" style="margin-top:10px"><i style="width:90%"></i></div></div></div></div>`,
+            () => {
+                window.Q = q => {
+                    if (!q) return; const c = $('#ch'), t = q.toLowerCase(); let a = 'I could not match that yet. Try revenue by region, top month or margin.', s = '-- no query';
+                    if (t.includes('region')) { a = 'North America leads with 42%, then Europe 28%, Asia Pacific 18%, Others 12%.'; s = 'SELECT region, SUM(revenue)\nFROM sales GROUP BY region\nORDER BY 2 DESC;' }
+                    else if (t.includes('month') || t.includes('profit')) { a = 'September is the top month with $42K net profit.'; s = 'SELECT month, revenue-cogs-opex AS net\nFROM pnl ORDER BY net DESC LIMIT 1;' }
+                    else if (t.includes('margin')) { a = 'Net margin is 18.6% year to date, up 2.4 points.'; s = 'SELECT SUM(net)/SUM(revenue) FROM pnl;' }
+                    const u = document.createElement('div'); u.className = 'm u'; u.textContent = q; c.append(u); const b = document.createElement('div'); b.className = 'm a'; b.textContent = a; const k = document.createElement('code'); k.textContent = s; b.append(k); setTimeout(() => c.append(b), 450)
+                };
+                const p = new URLSearchParams(location.search).get('q'); if (p) Q(p)
+            })
+    </script>
+</body>
+
+</html>

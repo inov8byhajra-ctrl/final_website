@@ -1,0 +1,16 @@
+# Environments
+venv/
+env/
+
+# Secrets
+.env
+
+# Python Cache
+__pycache__/
+*.pyc
+
+# Editor
+.vscode/
+# Uploaded license documents (private)
+uploads/licenses/*
+!uploads/licenses/.gitkeep

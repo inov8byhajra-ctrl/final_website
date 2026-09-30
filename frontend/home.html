@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Home — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        page('Home', u => {
+            const f = st.get('if_files', []), un = st.get('if_unified', false); return `<div class="home-top">${u.role === 'cfo' ? '<a class="btn solid inv-btn" href="invite.html">+ Invite manager</a>' : ''}</div><div class="hg home-hg"><div><span class="eye">Intelligent business analytics</span><h1 class="ht">Insight-Flow</h1><p class="lead">Upload your CSV or XLSX files and turn raw business data into live dashboards, AI forecasts, drift detection and proactive recommendations.</p>
+<form class="ask" style="margin:18px 0 10px" onsubmit="event.preventDefault();location.href='ask.html?q='+encodeURIComponent($('#hs').value)"><input id="hs" placeholder="Ask anything about your business analytics..."><button class="btn solid">Ask ↗</button></form>
+<small style="color:var(--mut)">Try: “Why did revenue drop last month?”</small><p style="margin-top:14px"><span class="tag">AI Forecasting</span> <span class="tag">Drift Detection</span> <span class="tag">Live Analytics</span> <span class="tag">${f.length} files · ${un ? 'Unified' : 'Not merged'}</span></p></div>
+<div class="stage2"><div class="fx" style="top:0;left:0">✦ Revenue trend detected</div><div class="win home-card"><div class="in"><small class="eye">Business overview</small><h3>Performance</h3><strong style="font:600 2.2rem var(--disp);color:var(--wine)">$248.6K</strong> <small>↗ 18.4% vs last month</small>${line(REV)}<div class="tri"><div class="cr"><small>Revenue</small><b style="font-size:1.2rem">+24.8%</b></div><div class="cr"><small>Forecast</small><b style="font-size:1.2rem">94.2%</b></div><div class="cr"><small>Risk</small><b style="font-size:1.2rem">Low</b></div></div></div></div></div></div>
+<div class="mini">${[['Revenue', '$248.6K', '↗ 18.4% vs last month'], ['Files', f.length, un ? 'Unified' : 'Not merged yet'], ['Forecast accuracy', '94.2%', 'Model is healthy'], ['Risk', 'Low', 'No drift detected']].map(k => `<div class="sc"><small>${k[0]}</small><b>${k[1]}</b><span>${k[2]}</span></div>`).join('')}</div>
+<div class="pn"><h3>Where to next</h3><div class="qa"><a href="data.html"><b>Upload data</b><span>Add monthly or quarterly CSV and XLSX files.</span></a><a href="ask.html"><b>Ask a question</b><span>Get answers from your own data in plain English.</span></a><a href="pnl.html"><b>Open Profit &amp; Loss</b><span>Revenue, costs and profit, month by month.</span></a></div></div>`}, () => draw())
+
+        if (location.search.includes('invited=1')) { const t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status'); t.textContent = 'Invitation sent to your regional manager.'; document.body.appendChild(t); setTimeout(() => t.remove(), 4000); history.replaceState(null, '', 'home.html') }
+    </script>
+</body>
+
+</html>

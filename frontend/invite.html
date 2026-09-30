@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Invite regional manager — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body><iframe class="bgsite" src="home.html" title="" aria-hidden="true" tabindex="-1"></iframe>
+    <div class="bgveil"></div>
+    <div class="authpg"><a class="back" href="home.html" style="color:#fff">&larr; Back to home</a>
+        <div class="pop">
+            <h3>Add your team</h3>
+            <p class="s">Invite a regional manager to your InsightFlow workspace.</p>
+            <form id="inf">
+                <div class="f"><label for="mn">Manager name</label><input id="mn" required placeholder="Full name">
+                </div>
+                
+                <div class="f"><label for="me">Company email</label><input id="me" type="email" required
+                        placeholder="name@company.com"></div>
+                <div class="f"><label for="mr">Region</label><input id="mr" required
+                        placeholder="e.g. North America, Punjab, EMEA"></div>
+                <p class="err" id="ie" role="alert"></p><button class="btn solid">Invite regional manager</button>
+            </form>
+        </div>
+    </div>
+    <script src="api.js"></script>
+    <script>
+        const $ = s => document.querySelector(s);
+        const me = IF.getSession();
+        /* only a signed-in CFO can invite */
+        if (!me || !me.token || IF.tokenExpired(me.token)) { IF.clearSession(); location.replace('login.html?next=invite.html'); }
+        else if (me.role !== 'cfo') location.replace(IF.homeFor(me.role));
+
+        $('#inf').onsubmit = async e => {
+            e.preventDefault(); const v = i => $(i).value.trim(), er = $('#ie'), btn = e.target.querySelector('button.solid');
+            er.style.color = ''; er.textContent = '';
+            btn.disabled = true; const label = btn.textContent; btn.textContent = 'Sending invitation…';
+            try {
+                const r = await IF.api('/api/auth/cfo/invite-manager', { method: 'POST', auth: true, json: { name: v('#mn'), email: v('#me').toLowerCase(), region: v('#mr') } });
+                if (r.dev_otp) {   /* only when the server has no SMTP configured (dev mode) */
+                    er.style.color = '#2e7d32'; er.textContent = 'Dev mode (no email server set up). Manager code: ' + r.dev_otp + ' - open verify.html to test.';
+                    btn.disabled = false; btn.textContent = label; return;
+                }
+                location.href = 'home.html?invited=1';
+            } catch (ex) { er.textContent = ex.message; btn.disabled = false; btn.textContent = label }
+        };
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Forecast — InsightFlow</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="design.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+    <script>
+        page('Forecast', () => `<h1 class="ht">Forecast and drift</h1><p class="lead">Where your numbers are heading, with a warning when the data drifts.</p>
+<div class="fg"><section class="pn"><h3>Revenue outlook</h3><div class="seg" id="sg" role="group" aria-label="Forecast range"><button class="on" data-n="3">3 months</button><button data-n="6">6 months</button></div><div id="fc"></div></section>
+<aside class="dk drift"><h3>Drift alert</h3><p>Average order value shifted 14% against the training window. Refresh the model before trusting the Q4 projection.</p><span class="cf">Confidence 91%</span><a class="btn wh" href="advisory.html">See advice</a></aside></div>`,
+            () => {
+                const P = n => { const o = []; let v = REV[REV.length - 1]; for (let i = 0; i < n; i++) { v = v * 1.032; o.push(Math.round(v)) } return o },
+                show = n => { $('#fc').innerHTML = line(REV, P(n)); draw() }; show(3);
+                $('#sg').onclick = e => { const b = e.target.closest('button'); if (!b) return; document.querySelectorAll('#sg button').forEach(x => x.classList.toggle('on', x === b)); show(+b.dataset.n) }
+            })
+    </script>
+</body>
+
+</html>
