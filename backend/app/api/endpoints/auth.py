@@ -10,6 +10,7 @@ from fastapi import (
     APIRouter, Depends, File, Form, HTTPException, Request, UploadFile,
     WebSocket, WebSocketDisconnect, status,
 )
+from sqlalchemy.orm import Session
 from fastapi.responses import FileResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import JWTError, jwt
@@ -17,19 +18,21 @@ from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import func, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from starlette.concurrency import run_in_threadpool
 
 from app.api.dependencies import get_current_user
 from app.core.config import settings
 from app.core.database import AsyncSessionLocal, get_db
 from app.core.limiter import limiter
 from app.core.security import create_access_token, get_password_hash, verify_password
-from app.models.user import ManagerInvitation, RoleEnum, User
+from app.models.user import ManagerInvitation, RoleEnum, User,Notification
 from app.schemas.user import AdminApproveLicense, InviteManager, ManagerSignUp
 from app.utils.email import (
     cfo_approved_email, cfo_rejected_email, manager_invite_email, send_email,
 )
 from app.utils.websockets import notification_manager
+from sqlalchemy.future import select
+
+from sqlalchemy import text
 
 router = APIRouter()
 
@@ -295,7 +298,7 @@ async def admin_approve_license(
         if license_name:
             (UPLOAD_DIR / license_name).unlink(missing_ok=True)
         subject, text, html_body = cfo_rejected_email(display_name)
-        sent = await run_in_threadpool(send_email, cfo_email, subject, text, html_body)
+        sent = await send_email(cfo_email, subject, text, html_body)
         return {"message": "License invalid. CFO registration rejected and removed.", "email_sent": sent}
 
     if cfo.is_approved:
@@ -309,9 +312,92 @@ async def admin_approve_license(
 
     login_url = f"{settings.FRONTEND_URL.rstrip('/')}/login.html?tab=login"
     subject, text, html_body = cfo_approved_email(display_name, login_url)
-    sent = await run_in_threadpool(send_email, cfo_email, subject, text, html_body)
+    sent = await send_email(cfo_email, subject, text, html_body)
     return {"message": "CFO approved.", "email_sent": sent}
 
+@router.delete("/admin/users/{user_id}")
+async def remove_user(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    # 1. Check if current user is admin
+    _require_admin(current_user)
+
+    # 2. Admin cannot delete their own account
+    if current_user.id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own admin account.")
+
+    # 3. Find the user (CFO) to delete
+    result = await db.execute(select(User).filter(User.id == user_id))
+    user_to_delete = result.scalars().first()
+
+    if not user_to_delete:
+        raise HTTPException(status_code=404, detail="User not found.")
+
+    # 4. MANUAL CASCADE (Safely delete child records first to avoid constraint errors)
+    
+    # A) Is CFO ne jo bhi invitations bheji thi, unhe delete karein
+    await db.execute(
+        text("DELETE FROM manager_invitations WHERE cfo_id = :uid"), 
+        {"uid": user_id}
+    )
+    
+    # B) Is CFO ke under jitne bhi Managers (users) thay, unhe delete karein
+    await db.execute(
+        text("DELETE FROM users WHERE cfo_id = :uid"), 
+        {"uid": user_id}
+    )
+    
+    # C) Agar is user ki koi notifications hain toh wo bhi hata dein
+    await db.execute(
+        text("DELETE FROM notifications WHERE admin_id = :uid"), 
+        {"uid": user_id}
+    )
+
+    # 5. Ab safely main User (CFO) ko delete karein
+    await db.delete(user_to_delete)
+    await db.commit()
+
+    return {"message": f"User {user_to_delete.email} and all related data successfully removed."}
+
+@router.get("/admin/notifications")
+async def get_admin_notifications(
+    db: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    _require_admin(current_user)
+    
+    result = await db.execute(
+        select(Notification).filter(
+            Notification.admin_id == current_user.id, 
+            Notification.is_read == False
+        )
+    )
+    notifications = result.scalars().all()
+    return notifications
+
+@router.patch("/admin/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: int, 
+    db: AsyncSession = Depends(get_db), 
+    current_user: User = Depends(get_current_user)
+):
+    _require_admin(current_user)
+    
+    result = await db.execute(
+        select(Notification).filter(
+            Notification.id == notification_id, 
+            Notification.admin_id == current_user.id
+        )
+    )
+    notif = result.scalars().first()
+    
+    if notif:
+        notif.is_read = True
+        await db.commit()
+        
+    return {"status": "success"}
 
 # ==========================================
 # STAGE 2: Manager Invitation & Registration
@@ -374,7 +460,7 @@ async def invite_manager(
         email=mgr_email,
         minutes=OTP_MINUTES,
     )
-    sent = await run_in_threadpool(send_email, mgr_email, subject, text, html_body)
+    sent = await send_email(mgr_email, subject, text, html_body)
     if not sent:
         new_invite.is_used = True        # don't leave a live OTP nobody received
         await db.commit()

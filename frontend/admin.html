@@ -50,9 +50,10 @@
 <td class="r"><button class="btn solid" style="${BTN}" data-a="ok" data-id="${c.id}">Approve</button> <button class="btn" style="${BTN}" data-a="no" data-id="${c.id}">Reject</button></td></tr>`).join('')}</table>`
                         : '<p style="color:var(--mut)">No CFOs are waiting for approval. You are all caught up.</p>';
 
-                    $('#at').innerHTML = appr.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>License expires</th><th>Status</th></tr>${appr.map(c => `<tr>
-<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number || '—')}</td><td>${fd(c.license_expiry_date)}</td><td><span class="tag">Approved</span></td></tr>`).join('')}</table>`
-                        : '<p style="color:var(--mut)">No approved CFOs yet.</p>';
+                    $('#at').innerHTML = appr.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>License expires</th><th>Status</th><th>Action</th></tr>${appr.map(c => `<tr id="user-row-${c.id}">
+<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number)}</td><td>${fd(c.license_expiry_date)}</td><td><span class="tag">Approved</span></td>
+<td><button class="btn" style="padding:4px 12px; font-size:0.8rem; color:#fff; background:#4A0E17; border:none; border-radius:4px; cursor:pointer;" onclick="deleteUser(${c.id})">Remove</button></td></tr>`).join('')}</table>`
+    : '<p style="color:var(--mut)">No approved CFOs yet.</p>';
                 }
 
                 /* View / Approve / Reject buttons */
@@ -77,8 +78,151 @@
                     ws.onclose = () => { setLive(false); setTimeout(live, 3000) };
                 }
                 load(); live();
+
             });
-    </script>
+async function loadAdminNotifications() {
+    try {
+        const response = await fetch('/api/admin/notifications', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        });
+        if (!response.ok) throw new Error('Failed to fetch notifications');
+        
+        const notifications = await response.json();
+        const notificationBadge = document.getElementById('notification-badge');
+        const notificationList = document.getElementById('notification-list');
+        
+        if (notificationBadge && notifications.length > 0) {
+            notificationBadge.textContent = notifications.length;
+            notificationBadge.style.display = 'inline-block';
+        }
+        
+        if (notificationList && notifications.length > 0) {
+            notificationList.innerHTML = notifications.map(n => `
+                <div class="notification-item" data-id="${n.id}">
+                    <p>${n.message}</p>
+                    <button onclick="markAsRead(${n.id})">Dismiss</button>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+    }
+}
+
+async function markAsRead(id) {
+    await fetch(`/api/admin/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+    });
+    loadAdminNotifications(); // Refresh list
+}
+
+// Jab admin page load ho toh yeh function chal jaye
+document.addEventListener('DOMContentLoaded', loadAdminNotifications);
+
+
+
+
+
+async function deleteUser(userId) {
+    if (!confirm("Are you sure you want to remove this user? This action cannot be undone.")) return;
+
+    try {
+        const session = IF.getSession();
+        if (!session || !session.token) throw new Error("Authentication token missing. Please log in again.");
+
+        const response = await fetch(`http://127.0.0.1:8000/api/auth/admin/users/${userId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${session.token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(errText || 'Failed to delete user');
+        }
+
+        IF.toast('User removed successfully.');
+        const row = document.getElementById(`user-row-${userId}`);
+        if (row) row.remove();
+        
+    } catch (error) {
+        IF.toast(`Error: ${error.message}`, true);
+    }
+}
+
+// 1. Jaise hi admin dashboard khule, browser se notification ki permission maangein
+document.addEventListener('DOMContentLoaded', () => {
+    if ("Notification" in window && Notification.permission !== "granted") {
+        Notification.requestPermission();
+    }
+});
+
+// 2. Windows/Mac style ka popup show karne ka function
+function showDesktopNotification(title, message) {
+    if (Notification.permission === "granted") {
+        const notification = new Notification(title, {
+            body: message,
+            icon: "https://cdn-icons-png.flaticon.com/512/1828/1828673.png" // Ek admin jaisa icon
+        });
+
+        // 3. Jab admin popup par click kare toh kya ho?
+        notification.onclick = function() {
+            window.focus(); // Browser ko screen par samne le aayega
+            
+            // Agar token nahi hai toh login par bhej dein, warna dashboard par hi rahein
+            if (!localStorage.getItem('token') && (!IF.getSession() || !IF.getSession().token)) {
+                window.location.href = "/login.html";
+            }
+        };
+    }
+}
+
+let previousNotificationCount = 0; // Top par yeh variable banayein
+
+async function loadAdminNotifications() {
+    try {
+        const response = await fetch('/api/auth/admin/notifications', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        });
+        if (!response.ok) return;
+        
+        const notifications = await response.json();
+        
+        // --- NAYA LOGIC: Agar nayi notification aayi hai toh popup show karein ---
+        if (notifications.length > previousNotificationCount) {
+            const latestNotification = notifications[0]; // Sab se nayi notification
+            showDesktopNotification("New Alert in InsightFlow", latestNotification.message);
+        }
+        previousNotificationCount = notifications.length; // Count update kar lein
+        // -------------------------------------------------------------------------
+
+        const notificationBadge = document.getElementById('notification-badge');
+        const notificationList = document.getElementById('notification-list');
+        
+        if (notificationBadge && notifications.length > 0) {
+            notificationBadge.textContent = notifications.length;
+            notificationBadge.style.display = 'inline-block';
+        }
+        
+        if (notificationList && notifications.length > 0) {
+            notificationList.innerHTML = notifications.map(n => `
+                <div class="notification-item" data-id="${n.id}">
+                    <p>${n.message}</p>
+                    <button onclick="markAsRead(${n.id})">Dismiss</button>
+                </div>
+            `).join('');
+        }
+    } catch (error) {
+        console.error('Error loading notifications:', error);
+    }
+}
+
+</script>
 </body>
 
 </html>
