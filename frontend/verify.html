@@ -25,12 +25,12 @@
                         style="font-size:1.5rem;font-weight:700;letter-spacing:.45em;text-align:center"></div>
                 <div class="g2">
                     <div class="f"><label for="vw">Password</label>
-                        <div class="pw"><input id="vw" type="password" required minlength="6"
-                                placeholder="At least 6 characters" autocomplete="new-password"><button type="button"
+                        <div class="pw"><input id="vw" type="password" required minlength="8"
+                                placeholder="8+ chars, 1 uppercase, 1 digit, 1 symbol" autocomplete="new-password"><button type="button"
                                 class="sh" data-t="vw">Show</button></div>
                     </div>
                     <div class="f"><label for="vc">Confirm password</label>
-                        <div class="pw"><input id="vc" type="password" required placeholder="Repeat your password"
+                        <div class="pw"><input id="vc" type="password" required minlength="8" placeholder="Repeat your password"
                                 autocomplete="new-password"><button type="button" class="sh" data-t="vc">Show</button>
                         </div>
                     </div>
@@ -44,18 +44,17 @@
     <script>
         const $ = s => document.querySelector(s);
         const q = new URLSearchParams(location.search);
+        const STRONG_PWD_REGEX = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
 
         /* already signed in -> nothing to verify */
         { const s = IF.getSession(); if (s && s.token && !IF.tokenExpired(s.token)) location.replace(IF.homeFor(s.role)) }
 
-        /* the email link carries ?email=... so the manager only needs to paste the code */
         if (q.get('email')) {
             $('#ve').value = q.get('email');
             IF.toast('We emailed a 6-digit code to ' + q.get('email') + '. Paste it below.');
             $('#vo').focus();
         }
 
-        /* accept a pasted code in any shape ("123 456", "OTP: 123456") - keep the digits only */
         $('#vo').addEventListener('input', e => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 6) });
 
         document.querySelectorAll('.sh').forEach(b => b.onclick = () => { const i = $('#' + b.dataset.t), s = i.type === 'password'; i.type = s ? 'text' : 'password'; b.textContent = s ? 'Hide' : 'Show' });
@@ -63,12 +62,18 @@
         $('#vf').onsubmit = async e => {
             e.preventDefault(); const er = $('#ve2'), btn = e.target.querySelector('button.solid'); er.textContent = '';
             const otp = $('#vo').value.replace(/\D/g, '');
+            const pass = $('#vw').value;
+
             if (otp.length !== 6) return er.textContent = 'Please enter the full 6-digit code.';
-            if ($('#vw').value !== $('#vc').value) return er.textContent = 'Passwords do not match.';
+            if (!STRONG_PWD_REGEX.test(pass)) {
+                return er.textContent = 'Password must be at least 8 characters long and include at least 1 uppercase letter, 1 digit, and 1 special symbol (@$!%*?&).';
+            }
+            if (pass !== $('#vc').value) return er.textContent = 'Passwords do not match.';
+
             btn.disabled = true; const label = btn.textContent; btn.textContent = 'Verifying…';
             try {
-                const d = await IF.api('/api/auth/manager/signup', { method: 'POST', json: { email: $('#ve').value.trim().toLowerCase(), otp_code: otp, password: $('#vw').value } });
-                IF.saveLogin(d, true);           /* verified = signed in, straight to the dashboard */
+                const d = await IF.api('/manager/signup', { method: 'POST', json: { email: $('#ve').value.trim().toLowerCase(), otp_code: otp, password: pass } });
+                IF.saveLogin(d, true);
                 location.href = 'home.html';
             } catch (ex) { er.textContent = ex.message; btn.disabled = false; btn.textContent = label }
         };

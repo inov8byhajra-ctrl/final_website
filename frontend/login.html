@@ -27,7 +27,7 @@
                     <div class="f"><label for="le">Email</label><input id="le" type="email" required
                             placeholder="name@company.com"></div>
                     <div class="f"><label for="lw">Password</label><input id="lw" type="password" required
-                            minlength="6"></div>
+                            minlength="8"></div>
                     <div class="kr"><label class="ks" for="lk"><input id="lk" type="checkbox" checked><span
                                 class="tg"></span>Keep me signed in</label><a class="fg2" onclick="tab('forgot')"
                             tabindex="0" role="button">Forgot password?</a></div>
@@ -62,12 +62,12 @@
                     </div>
                     <div class="g2">
                         <div class="f"><label for="rw">Password</label>
-                            <div class="pw"><input id="rw" type="password" required minlength="6"
-                                    placeholder="At least 6 characters"><button type="button" class="sh"
+                            <div class="pw"><input id="rw" type="password" required minlength="8"
+                                    placeholder="8+ chars, 1 uppercase, 1 digit, 1 symbol"><button type="button" class="sh"
                                     data-t="rw">Show</button></div>
                         </div>
                         <div class="f"><label for="rc">Confirm password</label>
-                            <div class="pw"><input id="rc" type="password" required
+                            <div class="pw"><input id="rc" type="password" required minlength="8"
                                     placeholder="Repeat your password"><button type="button" class="sh"
                                     data-t="rc">Show</button></div>
                         </div>
@@ -78,21 +78,14 @@
             </div>
             <div id="fp" hidden>
                 <h3>Reset password</h3>
-                <p class="s">Enter your account email and choose a new password.</p>
+                <p class="s">Enter your account email to receive a password reset verification link.</p>
                 <form id="ff">
-                    <div class="f"><label for="fe">Email</label><input id="fe" type="email" required
-                            placeholder="name@company.com"></div>
-                    <div class="f"><label for="fw">New password</label>
-                        <div class="pw"><input id="fw" type="password" required minlength="6"
-                                placeholder="At least 6 characters"><button type="button" class="sh"
-                                data-t="fw">Show</button></div>
+                    <div class="f">
+                        <label for="fe">Email address</label>
+                        <input id="fe" type="email" required placeholder="name@company.com" autocomplete="email">
                     </div>
-                    <div class="f"><label for="fc">Confirm new password</label>
-                        <div class="pw"><input id="fc" type="password" required
-                                placeholder="Repeat new password"><button type="button" class="sh"
-                                data-t="fc">Show</button></div>
-                    </div>
-                    <p class="err" id="fe2" role="alert"></p><button class="btn solid">Reset password</button>
+                    <p class="err" id="fe2" role="alert"></p>
+                    <button class="btn solid">Send reset link</button>
                 </form>
                 <div class="sw">Remembered it? <a onclick="tab('login')">Back to sign in</a></div>
             </div>

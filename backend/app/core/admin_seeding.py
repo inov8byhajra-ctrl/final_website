@@ -11,7 +11,7 @@ async def create_default_admin(db: AsyncSession):
     if not admin_user:
         hashed_pwd = get_password_hash("admin123")
         db_admin = User(
-            email="admin@insightflow.com",
+            email="dataengineerhaju23@gmail.com",  # <-- Real email updated
             hashed_password=hashed_pwd,
             role=RoleEnum.admin,
             is_verified=1,
@@ -22,4 +22,10 @@ async def create_default_admin(db: AsyncSession):
         await db.commit()
         print(" Default Admin user successfully created!")
     else:
-        print("Admin already exists!")
+        # Existing admin ka email bhi real email par update kar dein
+        if admin_user.email != "dataengineerhaju23@gmail.com":
+            admin_user.email = "dataengineerhaju23@gmail.com"
+            await db.commit()
+            print(" Existing Admin email updated to real email!")
+        else:
+            print("Admin already exists!")

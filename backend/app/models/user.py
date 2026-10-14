@@ -83,3 +83,14 @@ class Notification(base):
     message = Column(String, nullable=False)
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+class BlacklistedCompany(base):
+    __tablename__ = "blacklisted_companies"
+
+    id = Column(Integer, primary_key=True, index=True)
+    company_name = Column(String, nullable=True)
+    company_domain = Column(String, index=True, nullable=True)
+    email = Column(String, nullable=True)
+    license_number = Column(String, nullable=True)
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)

@@ -42,7 +42,7 @@
             er.style.color = ''; er.textContent = '';
             btn.disabled = true; const label = btn.textContent; btn.textContent = 'Sending invitation…';
             try {
-                const r = await IF.api('/api/auth/cfo/invite-manager', { method: 'POST', auth: true, json: { name: v('#mn'), email: v('#me').toLowerCase(), region: v('#mr') } });
+                const r = await IF.api('/cfo/invite-manager', { method: 'POST', auth: true, json: { name: v('#mn'), email: v('#me').toLowerCase(), region: v('#mr') } });
                 if (r.dev_otp) {   /* only when the server has no SMTP configured (dev mode) */
                     er.style.color = '#2e7d32'; er.textContent = 'Dev mode (no email server set up). Manager code: ' + r.dev_otp + ' - open verify.html to test.';
                     btn.disabled = false; btn.textContent = label; return;

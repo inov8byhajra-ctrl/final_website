@@ -11,7 +11,6 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="design.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 </head>
 
 <body>
@@ -23,206 +22,164 @@
     <script src="app.js"></script>
     <script>
         const BTN = 'padding:7px 16px;font-size:.85rem';
+        const BLOCK_BTN = 'padding:4px 12px;font-size:.8rem;color:#fff;border:none;border-radius:4px;cursor:pointer;';
         const fd = d => d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
         const who = c => `<b>${esc(c.name || '—')}</b><br><small style="color:var(--mut)">${esc(c.email)}</small>`;
         const co = c => `<b>${esc(c.company_name || '—')}</b><br><small style="color:var(--mut)">@${esc(c.company_domain || '')}</small>`;
 
         page('Admin', u => `<div class="home-top"></div>
-<div><span class="eye">Admin console</span><h1 class="ht" style="font-size:2.3rem">CFO approvals</h1><p class="lead">Check each CFO's license document, then approve or reject. They are emailed as soon as you decide.</p></div>
+<div><span class="eye">Admin console</span><h1 class="ht" style="font-size:2.3rem">CFO approvals</h1><p class="lead">Check each CFO's license document, then approve, reject or blacklist. They are emailed when you approve or reject.</p></div>
 <div class="mini" style="margin-top:18px">
 <div class="sc"><small>Pending review</small><b id="k1">–</b><span>Waiting for your decision</span></div>
 <div class="sc"><small>Approved CFOs</small><b id="k2">–</b><span>Can access their dashboard</span></div>
 <div class="sc"><small>Regional managers</small><b id="k3">–</b><span>Invited by CFOs and verified</span></div>
 <div class="sc"><small>Live updates</small><b id="k4">Connecting…</b><span>New sign-ups appear instantly</span></div></div>
 <div class="pn"><h3>Pending approvals</h3><div class="tw" id="pt"><p style="color:var(--mut)">Loading…</p></div></div>
-<div class="pn"><h3>Approved CFOs</h3><div class="tw" id="at"><p style="color:var(--mut)">Loading…</p></div></div>`,
+<div class="pn"><h3>Approved CFOs</h3><div class="tw" id="at"><p style="color:var(--mut)">Loading…</p></div></div>
+<div class="pn"><h3>Regional Managers</h3><div class="tw" id="rm"><p style="color:var(--mut)">Loading…</p></div></div>
+<div class="pn"><h3>Blacklisted companies</h3><div class="tw" id="bl"><p style="color:var(--mut)">Loading…</p></div></div>`,
             () => {
                 const setLive = on => { $('#k4').textContent = on ? 'Connected' : 'Reconnecting…' };
 
                 async function load() {
-                    let d; try { d = await IF.api('/api/auth/admin/cfos', { auth: true }) } catch (e) { $('#pt').innerHTML = `<p class="err">${esc(e.message)}</p>`; return }
-                    $('#k1').textContent = d.stats.pending; $('#k2').textContent = d.stats.approved; $('#k3').textContent = d.stats.managers;
+                    let d, managers = [], blacklist = [];
+                    try {
+                        d = await IF.api('/admin/cfos', { auth: true });
+                        managers = await IF.api('/admin/regional-managers', { auth: true }).catch(() => []);
+                        blacklist = await IF.api('/admin/blacklist', { auth: true }).catch(() => []);
+                    } catch (e) {
+                        $('#pt').innerHTML = `<p class="err">${esc(e.message)}</p>`;
+                        return;
+                    }
+
+                    $('#k1').textContent = d.stats.pending;
+                    $('#k2').textContent = d.stats.approved;
+                    $('#k3').textContent = d.stats.managers;
+
                     const pend = d.cfos.filter(c => !c.is_approved), appr = d.cfos.filter(c => c.is_approved);
 
-                    $('#pt').innerHTML = pend.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>Issued</th><th>Expires</th><th>Document</th><th class="r">Decision</th></tr>${pend.map(c => `<tr>
-<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number || '—')}</td><td>${fd(c.license_issue_date)}</td><td>${fd(c.license_expiry_date)}</td>
+                    // 1. Pending CFOs
+                    $('#pt').innerHTML = pend.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>Issued</th><th>Expires</th><th>Document</th><th class="r">Decision</th></tr>` +
+                        pend.map(c => `<tr>
+<td>${who(c)}</td>
+<td>${co(c)}</td>
+<td>${esc(c.license_number || '—')}</td>
+<td>${fd(c.license_issue_date)}</td>
+<td>${fd(c.license_expiry_date)}</td>
 <td>${c.has_license_file ? `<button class="btn" style="${BTN}" data-a="view" data-id="${c.id}">View license</button>` : '—'}</td>
-<td class="r"><button class="btn solid" style="${BTN}" data-a="ok" data-id="${c.id}">Approve</button> <button class="btn" style="${BTN}" data-a="no" data-id="${c.id}">Reject</button></td></tr>`).join('')}</table>`
+<td class="r"><select id="exp-${c.id}" data-license="${c.license_expiry_date || ''}" style="padding:6px 8px;font-size:.85rem;border-radius:8px;border:1px solid #e5e5e5"><option value="license">Until license expires</option><option value="6">6 months</option><option value="12">1 year</option><option value="24">2 years</option></select> <button class="btn solid" style="${BTN}" data-a="ok" data-id="${c.id}">Approve</button> <button class="btn" style="${BTN}" data-a="no" data-id="${c.id}">Reject</button> <button class="btn" style="${BTN};color:#ba1a1a" data-a="bl" data-id="${c.id}">Blacklist</button></td>
+</tr>`).join('') + `</table>`
                         : '<p style="color:var(--mut)">No CFOs are waiting for approval. You are all caught up.</p>';
 
-                    $('#at').innerHTML = appr.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>License expires</th><th>Status</th><th>Action</th></tr>${appr.map(c => `<tr id="user-row-${c.id}">
-<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number)}</td><td>${fd(c.license_expiry_date)}</td><td><span class="tag">Approved</span></td>
-<td><button class="btn" style="padding:4px 12px; font-size:0.8rem; color:#fff; background:#4A0E17; border:none; border-radius:4px; cursor:pointer;" onclick="deleteUser(${c.id})">Remove</button></td></tr>`).join('')}</table>`
-    : '<p style="color:var(--mut)">No approved CFOs yet.</p>';
+                    // 2. Approved CFOs
+                    $('#at').innerHTML = appr.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>License expires</th><th>Status</th><th>Action</th></tr>` +
+                        appr.map(c => `<tr id="user-row-${c.id}">
+<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number || '—')}</td><td>${fd(c.license_expiry_date)}</td>
+<td><span class="tag" id="status-tag-${c.id}" data-ok="Approved">${c.is_blocked ? 'Blocked' : 'Approved'}</span></td>
+<td><button class="btn" id="block-btn-${c.id}" style="${BLOCK_BTN}background:${c.is_blocked ? '#2e7d32' : '#4A0E17'}" onclick="toggleBlockUser(${c.id})">${c.is_blocked ? 'Unblock' : 'Block'}</button></td></tr>`).join('') + `</table>`
+                        : '<p style="color:var(--mut)">No approved CFOs yet.</p>';
+
+                    // 3. Regional Managers
+                    $('#rm').innerHTML = managers.length ? `<table><tr><th>Manager</th><th>Region</th><th>Company</th><th>Status</th><th>Action</th></tr>` +
+                        managers.map(m => `<tr id="user-row-${m.id}">
+<td>${who(m)}</td>
+<td>${esc(m.region || '—')}</td>
+<td><b>${esc(m.cfo_company_name || m.company_name || '—')}</b></td>
+<td><span class="tag" id="status-tag-${m.id}" data-ok="Verified" style="background:#f4f6f8;color:#333;border:1px solid #e5e5e5">${m.is_blocked ? 'Blocked' : 'Verified'}</span></td>
+<td><button class="btn" id="block-btn-${m.id}" style="${BLOCK_BTN}background:${m.is_blocked ? '#2e7d32' : '#4A0E17'}" onclick="toggleBlockUser(${m.id})">${m.is_blocked ? 'Unblock' : 'Block'}</button></td>
+</tr>`).join('') + `</table>`
+                        : '<p style="color:var(--mut)">No regional managers registered yet.</p>';
+
+                    // 4. Blacklisted companies
+                    $('#bl').innerHTML = blacklist.length ? `<table><tr><th>Company</th><th>Domain</th><th>Email</th><th>License no.</th><th>Reason</th><th class="r">Action</th></tr>` +
+                        blacklist.map(b => `<tr><td><b>${esc(b.company_name || '—')}</b></td><td>${esc(b.company_domain || '—')}</td><td>${esc(b.email || '—')}</td><td>${esc(b.license_number || '—')}</td><td>${esc(b.reason || '—')}</td><td class="r"><button class="btn" style="${BTN}" data-a="unbl" data-id="${b.id}">Remove</button></td></tr>`).join('') + `</table>`
+                        : '<p style="color:var(--mut)">No blacklisted companies.</p>';
                 }
 
-                /* View / Approve / Reject buttons */
                 $('#pg').addEventListener('click', async e => {
                     const b = e.target.closest('button[data-a]'); if (!b) return; const id = +b.dataset.id, a = b.dataset.a;
                     try {
-                        if (a === 'view') return await IF.openProtectedFile('/api/auth/admin/download-license/' + id);
+                        if (a === 'view') return await IF.openProtectedFile('/admin/download-license/' + id);
+
+                        if (a === 'bl') {
+                            if (!confirm('Blacklist this company? The registration is deleted and they cannot sign up again.')) return;
+                            b.closest('tr').querySelectorAll('button').forEach(x => x.disabled = true);
+                            const r = await IF.api('/admin/blacklist', { method: 'POST', auth: true, json: { cfo_id: id, reason: 'Fraudulent registration' } });
+                            IF.toast(r.message);
+                            return load();
+                        }
+
+                        if (a === 'unbl') {
+                            if (!confirm('Remove this company from the blacklist?')) return;
+                            const r = await IF.api('/admin/blacklist/' + id, { method: 'DELETE', auth: true });
+                            IF.toast(r.message);
+                            return load();
+                        }
+
                         if (a === 'no' && !confirm('Reject this registration? The CFO is emailed and the account is removed.')) return;
                         b.closest('tr').querySelectorAll('button').forEach(x => x.disabled = true);
-                        const r = await IF.api('/api/auth/admin/approve-license', { method: 'POST', auth: true, json: { cfo_id: id, is_valid: a === 'ok' } });
+                        let expiry = null;
+                        if (a === 'ok') {
+                            const sel = document.getElementById('exp-' + id);
+                            if (sel.value === 'license' && sel.dataset.license) expiry = sel.dataset.license + 'T23:59:59';
+                            else if (sel.value !== 'license') { const d = new Date(); d.setMonth(d.getMonth() + +sel.value); expiry = d.toISOString(); }
+                        }
+                        const r = await IF.api('/admin/approve-license', { method: 'POST', auth: true, json: { cfo_id: id, is_valid: a === 'ok', expiry_date: expiry } });
                         IF.toast(r.message + (r.email_sent === false ? ' (email could not be sent)' : a === 'ok' ? ' Approval email sent.' : ''), r.email_sent === false);
                         load();
-                    } catch (ex) { IF.toast(ex.message, true); load() }
+                    } catch (ex) { IF.toast(ex.message, true); load(); }
                 });
 
-                /* live push: a new CFO signs up -> toast + refresh the list */
                 function live() {
                     const s = IF.getSession(); if (!s) return; let ws;
-                    try { ws = new WebSocket(IF.wsUrl('/api/auth/admin/ws?token=' + encodeURIComponent(s.token))) } catch (e) { return }
+                    try {
+                        ws = new WebSocket(IF.wsUrl('/admin/ws?token=' + encodeURIComponent(s.token)))
+                    } catch (e) { return }
                     ws.onopen = () => setLive(true);
-                    ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data) } catch (e) { m = { message: ev.data } } IF.toast(m.message || 'New activity'); load() };
-                    ws.onclose = () => { setLive(false); setTimeout(live, 3000) };
+                    ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data) } catch (e) { m = { message: ev.data } } IF.toast(m.message || 'New activity'); load(); };
+                    ws.onclose = () => { setLive(false); setTimeout(live, 3000); };
                 }
                 load(); live();
-
             });
-async function loadAdminNotifications() {
-    try {
-        const response = await fetch('/api/admin/notifications', {
-            headers: {
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+
+        // Block / unblock for approved CFOs and managers
+        async function toggleBlockUser(userId) {
+            try {
+                const response = await IF.api(`/admin/users/${userId}/toggle-block`, { method: 'PATCH', auth: true });
+                IF.toast(response.message || 'User block status updated successfully.');
+
+                const btn = document.getElementById(`block-btn-${userId}`);
+                const tag = document.getElementById(`status-tag-${userId}`);
+
+                if (btn) {
+                    btn.textContent = response.is_blocked ? 'Unblock' : 'Block';
+                    btn.style.background = response.is_blocked ? '#2e7d32' : '#4A0E17';
+                }
+                if (tag) tag.textContent = response.is_blocked ? 'Blocked' : tag.dataset.ok;
+            } catch (error) {
+                IF.toast(`Error: ${error.message}`, true);
+            }
+        }
+
+        // Desktop popup for unread admin notifications
+        async function loadAdminNotifications() {
+            try {
+                const notifications = await IF.api('/admin/notifications', { auth: true });
+                if (notifications && notifications.length && 'Notification' in window && Notification.permission === 'granted') {
+                    new Notification('New Alert in InsightFlow', { body: notifications[0].message });
+                }
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAdminNotifications();
+            if ('Notification' in window && Notification.permission === 'default') {
+                Notification.requestPermission();
             }
         });
-        if (!response.ok) throw new Error('Failed to fetch notifications');
-        
-        const notifications = await response.json();
-        const notificationBadge = document.getElementById('notification-badge');
-        const notificationList = document.getElementById('notification-list');
-        
-        if (notificationBadge && notifications.length > 0) {
-            notificationBadge.textContent = notifications.length;
-            notificationBadge.style.display = 'inline-block';
-        }
-        
-        if (notificationList && notifications.length > 0) {
-            notificationList.innerHTML = notifications.map(n => `
-                <div class="notification-item" data-id="${n.id}">
-                    <p>${n.message}</p>
-                    <button onclick="markAsRead(${n.id})">Dismiss</button>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        console.error('Error loading notifications:', error);
-    }
-}
-
-async function markAsRead(id) {
-    await fetch(`/api/admin/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-    });
-    loadAdminNotifications(); // Refresh list
-}
-
-// Jab admin page load ho toh yeh function chal jaye
-document.addEventListener('DOMContentLoaded', loadAdminNotifications);
-
-
-
-
-
-async function deleteUser(userId) {
-    if (!confirm("Are you sure you want to remove this user? This action cannot be undone.")) return;
-
-    try {
-        const session = IF.getSession();
-        if (!session || !session.token) throw new Error("Authentication token missing. Please log in again.");
-
-        const response = await fetch(`http://127.0.0.1:8000/api/auth/admin/users/${userId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${session.token}`,
-                'Content-Type': 'application/json'
-            }
-        });
-
-        if (!response.ok) {
-            const errText = await response.text();
-            throw new Error(errText || 'Failed to delete user');
-        }
-
-        IF.toast('User removed successfully.');
-        const row = document.getElementById(`user-row-${userId}`);
-        if (row) row.remove();
-        
-    } catch (error) {
-        IF.toast(`Error: ${error.message}`, true);
-    }
-}
-
-// 1. Jaise hi admin dashboard khule, browser se notification ki permission maangein
-document.addEventListener('DOMContentLoaded', () => {
-    if ("Notification" in window && Notification.permission !== "granted") {
-        Notification.requestPermission();
-    }
-});
-
-// 2. Windows/Mac style ka popup show karne ka function
-function showDesktopNotification(title, message) {
-    if (Notification.permission === "granted") {
-        const notification = new Notification(title, {
-            body: message,
-            icon: "https://cdn-icons-png.flaticon.com/512/1828/1828673.png" // Ek admin jaisa icon
-        });
-
-        // 3. Jab admin popup par click kare toh kya ho?
-        notification.onclick = function() {
-            window.focus(); // Browser ko screen par samne le aayega
-            
-            // Agar token nahi hai toh login par bhej dein, warna dashboard par hi rahein
-            if (!localStorage.getItem('token') && (!IF.getSession() || !IF.getSession().token)) {
-                window.location.href = "/login.html";
-            }
-        };
-    }
-}
-
-let previousNotificationCount = 0; // Top par yeh variable banayein
-
-async function loadAdminNotifications() {
-    try {
-        const response = await fetch('/api/auth/admin/notifications', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        });
-        if (!response.ok) return;
-        
-        const notifications = await response.json();
-        
-        // --- NAYA LOGIC: Agar nayi notification aayi hai toh popup show karein ---
-        if (notifications.length > previousNotificationCount) {
-            const latestNotification = notifications[0]; // Sab se nayi notification
-            showDesktopNotification("New Alert in InsightFlow", latestNotification.message);
-        }
-        previousNotificationCount = notifications.length; // Count update kar lein
-        // -------------------------------------------------------------------------
-
-        const notificationBadge = document.getElementById('notification-badge');
-        const notificationList = document.getElementById('notification-list');
-        
-        if (notificationBadge && notifications.length > 0) {
-            notificationBadge.textContent = notifications.length;
-            notificationBadge.style.display = 'inline-block';
-        }
-        
-        if (notificationList && notifications.length > 0) {
-            notificationList.innerHTML = notifications.map(n => `
-                <div class="notification-item" data-id="${n.id}">
-                    <p>${n.message}</p>
-                    <button onclick="markAsRead(${n.id})">Dismiss</button>
-                </div>
-            `).join('');
-        }
-    } catch (error) {
-        console.error('Error loading notifications:', error);
-    }
-}
-
-</script>
+    </script>
 </body>
 
 </html>

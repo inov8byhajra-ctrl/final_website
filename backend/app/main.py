@@ -7,15 +7,17 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
-from app.api.endpoints import auth, users
 from app.core.admin_seeding import create_default_admin
 from app.core.database import AsyncSessionLocal, base, engine
 from app.core.limiter import limiter
+from app.core.scheduler import start_scheduler, scheduler
+
+from app.api.endpoints import admin, cfo, regional_manager, users
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # create tables on start-up
+    # create any missing tables on start-up
     async with engine.begin() as conn:
         await conn.run_sync(base.metadata.create_all)
 
@@ -23,7 +25,13 @@ async def lifespan(app: FastAPI):
     async with AsyncSessionLocal() as db:
         await create_default_admin(db)
 
+    # start the background jobs (expired accounts, old invitations, old notifications)
+    start_scheduler()
+
     yield
+
+    # stop the background jobs when the server shuts down
+    scheduler.shutdown()
 
 
 app = FastAPI(title="InsightFlow Business Analytics API", lifespan=lifespan)
@@ -51,7 +59,9 @@ async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
     )
 
 
-app.include_router(auth.router, prefix="/api/auth")
+app.include_router(admin.router)
+app.include_router(cfo.router)
+app.include_router(regional_manager.router)
 app.include_router(users.router, prefix="/api/users", tags=["Users & RBAC"])
 
 # ---- serve the website (backend/../frontend) at "/" -------------------------------------
