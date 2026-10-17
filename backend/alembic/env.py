@@ -19,7 +19,8 @@ from app.models.user import User
 from app.models.log import ActivityLog
 
 config = context.config
-
+from app.models.uploaded_file import UploadedFile
+from app.models.business_data import BusinessData
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
