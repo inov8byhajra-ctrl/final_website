@@ -14,3 +14,7 @@ __pycache__/
 # Uploaded license documents (private)
 uploads/licenses/*
 !uploads/licenses/.gitkeep
+uploads/data/*
+
+.venv/
+.venv312/
