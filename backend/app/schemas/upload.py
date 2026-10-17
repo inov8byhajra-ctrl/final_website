@@ -9,3 +9,6 @@ class UploadResponse(BaseModel):
     row_count: int
     error_message: str | None = None
     uploaded_at: datetime
+    uploader: str | None = None
+    region: str | None = None
+    

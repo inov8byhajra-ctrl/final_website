@@ -29,8 +29,10 @@ async def upload_file(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    if user.role != RoleEnum.cfo:
-        raise HTTPException(403, "Only CFO accounts can upload data.")
+    if user.role not in (RoleEnum.cfo, RoleEnum.manager):
+        raise HTTPException(403, "Not allowed.")
+    if user.role == RoleEnum.manager and not user.region:
+        raise HTTPException(400, "Your account has no region assigned.")
 
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ingestion.ALLOWED_EXT:
@@ -45,17 +47,16 @@ async def upload_file(
     cfo_id = _company_id(user)
     fhash = ingestion.file_hash(content)
 
-    dup = await db.execute(
-        select(UploadedFile).where(
-            UploadedFile.cfo_id == cfo_id,
-            UploadedFile.file_hash == fhash,
-            UploadedFile.status == "stored",
-        )
+    dup_q = select(UploadedFile).where(
+        UploadedFile.cfo_id == cfo_id,
+        UploadedFile.file_hash == fhash,
+        UploadedFile.status == "stored",
     )
-    if dup.scalars().first():
+    if user.role == RoleEnum.manager:       # manager only checks own uploads
+        dup_q = dup_q.where(UploadedFile.user_id == user.id)
+    if (await db.execute(dup_q)).scalars().first():
         raise HTTPException(409, "This file was already uploaded.")
 
-    # save file
     folder = UPLOAD_DIR / str(cfo_id)
     folder.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename).name.replace(" ", "_")
@@ -67,12 +68,14 @@ async def upload_file(
         stored_path=str(path), file_hash=fhash, status="pending",
     )
     db.add(record)
-    await db.commit()          # keep the record even if later steps fail
+    await db.commit()
     upload_id = record.id
 
     try:
         df = await run_in_threadpool(ingestion.read_file, path)
         df = ingestion.clean(df)
+        if user.role == RoleEnum.manager:
+            df["region"] = user.region      # manager data is always tagged to own region
         errors = validate_contract(df)
         if errors:
             record.status = "rejected"
@@ -105,9 +108,19 @@ async def list_uploads(
 ):
     if user.role not in (RoleEnum.cfo, RoleEnum.manager):
         raise HTTPException(403, "Not allowed.")
-    res = await db.execute(
-        select(UploadedFile)
+    q = (
+        select(UploadedFile, User.name, User.role, User.region)
+        .join(User, User.id == UploadedFile.user_id)
         .where(UploadedFile.cfo_id == _company_id(user))
         .order_by(UploadedFile.uploaded_at.desc())
     )
-    return res.scalars().all()
+    if user.role == RoleEnum.manager:       # manager sees only own uploads
+        q = q.where(UploadedFile.user_id == user.id)
+
+    out = []
+    for f, name, role, region in (await db.execute(q)).all():
+        item = UploadResponse.model_validate(f)
+        item.uploader = name or role.value
+        item.region = region if role == RoleEnum.manager else "All regions"
+        out.append(item)
+    return out
