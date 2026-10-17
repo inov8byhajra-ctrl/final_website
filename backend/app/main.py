@@ -12,7 +12,7 @@ from app.core.database import AsyncSessionLocal, base, engine
 from app.core.limiter import limiter
 from app.core.scheduler import start_scheduler, scheduler
 
-from app.api.endpoints import admin, cfo, regional_manager, users
+from app.api.endpoints import admin, cfo, regional_manager, users, upload
 
 
 @asynccontextmanager
@@ -63,6 +63,7 @@ app.include_router(admin.router)
 app.include_router(cfo.router)
 app.include_router(regional_manager.router)
 app.include_router(users.router, prefix="/api/users", tags=["Users & RBAC"])
+app.include_router(upload.router)
 
 # ---- serve the website (backend/../frontend) at "/" -------------------------------------
 # Registered LAST so every /api/... route above wins.

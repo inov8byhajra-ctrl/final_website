@@ -1,6 +1,7 @@
 fastapi>=0.100.0
 uvicorn[standard]>=0.22.0
 sqlalchemy>=2.0.0
+greenlet>=3.0.0
 asyncpg>=0.29.0
 psycopg2-binary>=2.9.6
 pydantic[email]>=2.0.0
@@ -14,4 +15,7 @@ slowapi>=0.1.9
 alembic>=1.12.0
 aiosmtplib
 apscheduler>=3.10,<4
-greenlit
+pandas>=2.3.3
+openpyxl>=3.1.2
+xlrd>=2.0.1
+great_expectations-1.24.0
