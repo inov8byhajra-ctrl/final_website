@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Renew license — InsightFlow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="authpg"><a class="back" href="login.html">&larr; Back to sign in</a>
+        <div class="pop">
+            <h3>Renew your license</h3>
+            <p class="s">Submit your updated license. Your account and your managers get access again after admin approval.</p>
+            <form id="nf">
+                <div class="f"><label for="ne">Email</label><input id="ne" type="email" required maxlength="120" autocomplete="email" placeholder="name@company.com"></div>
+                <div class="f"><label for="nw">Password</label><input id="nw" type="password" required maxlength="72" autocomplete="current-password"></div>
+                <div class="f"><label for="nl">New license number</label><input id="nl" required maxlength="40" autocomplete="off" placeholder="e.g. TL-2026/12345"></div>
+                <div class="g2">
+                    <div class="f"><label for="ni">Issue date</label><input id="ni" type="date" required></div>
+                    <div class="f"><label for="nx">Expiry date</label><input id="nx" type="date" required></div>
+                </div>
+                <div class="f"><label for="nd">License document (PDF, JPG or PNG, up to 5 MB)</label>
+                    <input id="nd" type="file" accept=".pdf,.jpg,.jpeg,.png" required></div>
+                <p class="err" id="ne2" role="alert"></p>
+                <button class="btn solid">Submit renewal</button>
+            </form>
+        </div>
+    </div>
+    <script src="api.js"></script>
+    <script src="validators.js"></script>
+    <script>
+        const $ = s => document.querySelector(s);
+        function say(el, t, ok) { el.style.color = ok ? '#2e7d32' : ''; el.style.fontWeight = t ? '600' : ''; el.textContent = t; }
+        const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+
+        const LIC_EMAIL_MSG = 'License number cannot be an email address or contain "@". Enter the number printed on your trade license.';
+        /* license number: auto uppercase, letters / digits / - / only (an "@" is kept so the user sees the warning) */
+        $('#nl').addEventListener('input', e => {
+            const raw = e.target.value;
+            if (raw.includes('@')) { e.target.value = raw.toUpperCase().replace(/[^A-Z0-9\-\/@]/g, ''); say($('#ne2'), LIC_EMAIL_MSG); return; }
+            e.target.value = raw.toUpperCase().replace(/[^A-Z0-9\-\/]/g, '');
+        });
+
+        $('#nf').onsubmit = async e => {
+            e.preventDefault();
+            const er = $('#ne2'), btn = e.target.querySelector('button.solid'), f = $('#nd').files[0];
+            const issue = $('#ni').value, expiry = $('#nx').value;
+            say(er, '');
+            const email = $('#ne').value.trim().toLowerCase(), lic = $('#nl').value.trim().toUpperCase();
+            let p;
+            if ((p = V.email(email))) return say(er, p);
+            if (!$('#nw').value) return say(er, 'Please enter your password.');
+            if ((p = V.license(lic))) return say(er, p);
+            if (!issue || !expiry) return say(er, 'Please select the license issue and expiry dates.');
+            if (!f) return say(er, 'Please upload your license document.');
+            if (!/\.(pdf|jpe?g|png)$/i.test(f.name)) return say(er, 'License must be a PDF, JPG or PNG.');
+            if (f.size > 5 * 1024 * 1024) return say(er, 'License file must be 5 MB or smaller.');
+            if (issue > today()) return say(er, 'Issue date cannot be in the future.');
+            if (expiry <= issue) return say(er, 'Expiry date must be after the issue date.');
+            if (expiry <= today()) return say(er, 'This license is already expired.');
+
+            const fd = new FormData();
+            fd.append('email', email);
+            fd.append('password', $('#nw').value);
+            fd.append('license_number', lic);
+            fd.append('license_issue_date', issue);
+            fd.append('license_expiry_date', expiry);
+            fd.append('license_file', f, f.name);
+
+            btn.disabled = true; const old = btn.textContent; btn.textContent = 'Submitting…';
+            try {
+                const r = await IF.api('/cfo/renew', { method: 'POST', formData: fd });
+                e.target.reset();
+                say(er, r.message, true);
+            } catch (ex) { say(er, ex.message); }
+            finally { btn.disabled = false; btn.textContent = old; }
+        };
+    </script>
+</body>
+</html>

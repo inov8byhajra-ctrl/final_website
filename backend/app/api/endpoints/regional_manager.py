@@ -1,4 +1,3 @@
-import re
 import secrets
 from datetime import datetime
 
@@ -8,6 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.core.config import settings, local_now
 from app.core.database import get_db
 from app.core.limiter import limiter
 from app.core.security import create_access_token, get_password_hash, verify_password
@@ -17,17 +17,8 @@ from app.schemas.user import ManagerSignUp
 router = APIRouter()
 
 
-def is_strong_password(password: str) -> bool:
-    """Validates: min 8 chars, 1 uppercase, 1 digit, 1 special symbol."""
-    if len(password) < 8:
-        return False
-    if not re.search(r"[A-Z]", password):
-        return False
-    if not re.search(r"\d", password):
-        return False
-    if not re.search(r"[@$!%*?&]", password):
-        return False
-    return True
+MAX_OTP_ATTEMPTS = 5
+_DUMMY_HASH = get_password_hash("dummy-password")  # equalises login timing for unknown emails
 
 
 def _norm(email: str) -> str:
@@ -48,12 +39,6 @@ def _token_payload(user: User, token: str) -> dict:
 @router.post("/manager/signup", tags=["Manager Operations"])
 @limiter.limit("10/minute")
 async def manager_signup(request: Request, manager_in: ManagerSignUp, db: AsyncSession = Depends(get_db)):
-    if not is_strong_password(manager_in.password):
-        raise HTTPException(
-            status_code=400,
-            detail="Password must be at least 8 characters long and contain at least one uppercase letter, one digit, and one special character (@$!%*?&)."
-        )
-
     email = _norm(manager_in.email)
 
     exists = await db.execute(select(User).filter(func.lower(User.email) == email))
@@ -69,7 +54,19 @@ async def manager_signup(request: Request, manager_in: ManagerSignUp, db: AsyncS
     if not invitation:
         raise HTTPException(status_code=400, detail="No pending invitation found for this email.")
 
+    if (invitation.otp_attempts or 0) >= MAX_OTP_ATTEMPTS:
+        invitation.is_used = True
+        await db.commit()
+        raise HTTPException(status_code=400, detail="Too many wrong attempts. Ask your CFO to send a new invite.")
+
     if not secrets.compare_digest(invitation.otp_code or "", manager_in.otp_code):
+        invitation.otp_attempts = (invitation.otp_attempts or 0) + 1
+        locked = invitation.otp_attempts >= MAX_OTP_ATTEMPTS
+        if locked:
+            invitation.is_used = True
+        await db.commit()
+        if locked:
+            raise HTTPException(status_code=400, detail="Too many wrong attempts. Ask your CFO to send a new invite.")
         raise HTTPException(status_code=400, detail="Invalid OTP code.")
     if not invitation.otp_expiry or datetime.utcnow() > invitation.otp_expiry:
         raise HTTPException(status_code=400, detail="OTP has expired. Ask your CFO to send a new invite.")
@@ -111,23 +108,39 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     result = await db.execute(select(User).filter(func.lower(User.email) == email))
     user = result.scalars().first()
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+    if not user:
+        verify_password(form_data.password, _DUMMY_HASH)
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
+    if not verify_password(form_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password.")
+
+    now = local_now()
+    renew_url = f"{settings.FRONTEND_URL.rstrip('/')}/renew.html"
 
     if user.role == RoleEnum.cfo and not user.is_approved:
         raise HTTPException(
             status_code=403,
             detail="Your account is pending admin approval. We will email you as soon as it is approved.",
         )
+    # expired CFO license -> tell them to renew (checked before the generic blocked message)
+    if user.role == RoleEnum.cfo and user.account_expiry_date and now > user.account_expiry_date:
+        raise HTTPException(status_code=403, detail=f"Your license expired. Renew it here: {renew_url}")
     if user.is_blocked:
         raise HTTPException(status_code=403, detail="This account has been blocked. Please contact support.")
 
     if user.role == RoleEnum.manager and user.cfo_id:
         cfo = await db.get(User, user.cfo_id)
-        if cfo and cfo.is_blocked:
-            raise HTTPException(status_code=403, detail="Your company CFO account has been blocked. Please contact support.")
+        if cfo:
+            cfo_expired = bool(cfo.account_expiry_date and now > cfo.account_expiry_date)
+            if cfo_expired:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Your company's license has expired. Ask your CFO to renew it to restore access.",
+                )
+            if cfo.is_blocked:
+                raise HTTPException(status_code=403, detail="Your company CFO account has been blocked. Please contact support.")
 
-    if user.account_expiry_date and datetime.utcnow() > user.account_expiry_date:
+    if user.account_expiry_date and now > user.account_expiry_date:
         raise HTTPException(status_code=403, detail="Your account has expired. Please contact support.")
 
     token = create_access_token(data={"sub": user.email})

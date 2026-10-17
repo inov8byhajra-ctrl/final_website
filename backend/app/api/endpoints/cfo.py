@@ -11,16 +11,20 @@ from fastapi import (
 )
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import func, update, or_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.core.free_domains import FREE_DOMAINS
 from app.api.dependencies import get_current_user
-from app.core.config import settings
+from app.core.config import settings, local_now
 from app.core.database import get_db
 from app.core.limiter import limiter
-from app.core.security import get_password_hash
-from app.models.user import ManagerInvitation, RoleEnum, User, Notification,BlacklistedCompany
+from app.core.security import get_password_hash, verify_password
+from app.models.user import (
+    ManagerInvitation, RoleEnum, User, Notification, BlacklistedCompany, RenewalRequest,
+)
 from app.schemas.user import InviteManager
+from app.core.validators import clean_name, clean_company, clean_license, clean_phone, password_problem
 from app.utils.email import manager_invite_email, send_email, admin_new_cfo_registration_email
 from app.utils.websockets import notification_manager
 
@@ -38,21 +42,24 @@ OTP_MINUTES = 15
 _email_adapter = TypeAdapter(EmailStr)
 
 
-def is_strong_password(password: str) -> bool:
-    """Validates: min 8 chars, 1 uppercase, 1 digit, 1 special symbol."""
-    if len(password) < 8:
-        return False
-    if not re.search(r"[A-Z]", password):
-        return False
-    if not re.search(r"\d", password):
-        return False
-    if not re.search(r"[@$!%*?&]", password):
-        return False
-    return True
-
-
 def _norm(email: str) -> str:
     return (email or "").strip().lower()
+
+
+async def _store_license_file(license_file: UploadFile) -> str:
+    """Validate + save an uploaded license; returns the stored file name."""
+    ext = Path(license_file.filename or "").suffix.lower()
+    if ext not in LICENSE_SIGNATURES:
+        raise HTTPException(status_code=400, detail="License must be a PDF, JPG or PNG.")
+    content = await license_file.read(MAX_LICENSE_BYTES + 1)
+    if len(content) > MAX_LICENSE_BYTES:
+        raise HTTPException(status_code=400, detail="License file must be 5 MB or smaller.")
+    if not content.startswith(LICENSE_SIGNATURES[ext]):
+        raise HTTPException(status_code=400, detail=f"The license file is not a valid {ext[1:].upper()}.")
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    (UPLOAD_DIR / stored_name).write_bytes(content)
+    return stored_name
 
 
 @router.post("/cfo/signup", tags=["CFO operation"])
@@ -76,23 +83,38 @@ async def cfo_signup(
     except ValidationError:
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
     
-    # Python-level strong password validation
-    if not is_strong_password(password):
-        raise HTTPException(
-            status_code=400,
-            detail="Password must be at least 8 characters long and contain at least one uppercase letter, one digit, and one special character (@$!%*?&)."
-        )
-    
-    current_date = date.today()
+    try:
+        name = clean_name(name, "Full name")
+        company_name = clean_company(company_name)
+        license_number = clean_license(license_number)
+        phone = clean_phone(phone)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    problem = password_problem(password)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
+
+    dup = await db.execute(select(User).filter(func.lower(User.email) == email))
+    if dup.scalars().first():
+        raise HTTPException(status_code=400, detail="An account with this email already exists. Please sign in, or use 'Forgot password'.")
+
+    dup_lic = await db.execute(select(User).filter(func.upper(User.license_number) == license_number))
+    if dup_lic.scalars().first():
+        raise HTTPException(status_code=400, detail="This license number is already registered.")
+
+    current_date = local_now().date()
     if license_issue_date > current_date:
         raise HTTPException(status_code=400, detail="License issue date cannot be in the future.")
     if license_expiry_date <= license_issue_date:
         raise HTTPException(status_code=400, detail="License expiry date must be after the issue date.")
+    if license_expiry_date <= current_date:
+        raise HTTPException(status_code=400, detail="This license has already expired. Please use a valid license.")
     domain = email.split("@")[1]
     
     conditions = [
         func.lower(BlacklistedCompany.email) == email,
-        BlacklistedCompany.license_number == license_number.strip().upper(),
+        BlacklistedCompany.license_number == license_number,
     ]
     if domain not in FREE_DOMAINS:
         conditions.append(BlacklistedCompany.company_domain == domain)
@@ -101,28 +123,17 @@ async def cfo_signup(
     if bl.scalars().first():
         raise HTTPException(status_code=403, detail="This company cannot register on InsightFlow.")
 
-    ext = Path(license_file.filename or "").suffix.lower()
-    if ext not in LICENSE_SIGNATURES:
-        raise HTTPException(status_code=400, detail="License must be a PDF, JPG or PNG.")
-    content = await license_file.read(MAX_LICENSE_BYTES + 1)
-    if len(content) > MAX_LICENSE_BYTES:
-        raise HTTPException(status_code=400, detail="License file must be 5 MB or smaller.")
-    if not content.startswith(LICENSE_SIGNATURES[ext]):
-        raise HTTPException(status_code=400, detail=f"The license file is not a valid {ext[1:].upper()}.")
-
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    stored_name = f"{uuid.uuid4().hex}{ext}"
-    (UPLOAD_DIR / stored_name).write_bytes(content)
+    stored_name = await _store_license_file(license_file)
 
     new_cfo = User(
         email=email,
         hashed_password=get_password_hash(password),
         role=RoleEnum.cfo,
-        name=name.strip(),
-        phone=phone.strip() or None,
-        company_name=company_name.strip(),
+        name=name,
+        phone=phone,
+        company_name=company_name,
         company_domain=domain,
-        license_number=license_number.strip(),
+        license_number=license_number,
         license_issue_date=license_issue_date,
         license_expiry_date=license_expiry_date,
         trade_license_url=f"/uploads/licenses/{stored_name}",
@@ -134,7 +145,19 @@ async def cfo_signup(
         db.add(new_cfo)
         await db.commit()
         await db.refresh(new_cfo)
-        
+        new_cfo_id = new_cfo.id
+    except IntegrityError:
+        await db.rollback()
+        (UPLOAD_DIR / stored_name).unlink(missing_ok=True)
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+    except Exception:
+        await db.rollback()
+        (UPLOAD_DIR / stored_name).unlink(missing_ok=True)
+        raise
+
+    # The CFO is saved from here on. Notifications/emails are best-effort and must
+    # never delete the license file or fail the registration.
+    try:
         # 1. Query all admin users from database
         admin_result = await db.execute(select(User).filter(User.role == RoleEnum.admin))
         admins = admin_result.scalars().all()
@@ -172,19 +195,111 @@ async def cfo_signup(
             except Exception as mail_err:
                 print(f"[Admin Email Warning] Could not send notification to {admin_email}: {mail_err}")
 
+    except Exception as notify_err:
+        await db.rollback()
+        print(f"[Signup Warning] CFO {new_cfo_id} saved but notifying admins failed: {notify_err}")
+        notif_msg = f"New CFO registered: {name.strip()} ({company_name.strip()}). Please review documents."
+
+    try:
+        await notification_manager.broadcast(json.dumps({
+            "type": "cfo_registered",
+            "message": notif_msg,
+        }))
+    except Exception as ws_err:
+        print(f"[Signup Warning] WebSocket broadcast failed: {ws_err}")
+
+    return {
+        "message": "Registration received. You will get an email as soon as an admin approves your account.",
+        "cfo_id": new_cfo_id,
+    }
+
+
+# NEW: public renewal request (a blocked CFO cannot log in, so email + password are sent in the form)
+@router.post("/cfo/renew", tags=["CFO operation"])
+@limiter.limit("5/hour")
+async def cfo_renew(
+    request: Request,
+    email: str = Form(...),
+    password: str = Form(...),
+    license_number: str = Form(...),
+    license_issue_date: date = Form(...),
+    license_expiry_date: date = Form(...),
+    license_file: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    email = _norm(email)
+    try:
+        license_number = clean_license(license_number)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    res = await db.execute(select(User).filter(func.lower(User.email) == email, User.role == RoleEnum.cfo))
+    cfo = res.scalars().first()
+    if not cfo or not verify_password(password, cfo.hashed_password):
+        raise HTTPException(status_code=401, detail="Incorrect email or password.")
+    if not cfo.is_approved:
+        raise HTTPException(status_code=400, detail="Your account is still pending approval.")
+
+    now = local_now()
+    expired = bool(cfo.account_expiry_date and now > cfo.account_expiry_date)
+    if cfo.is_blocked and not expired:
+        raise HTTPException(status_code=403, detail="This account has been blocked. Please contact support.")
+
+    today = now.date()
+    if license_issue_date > today:
+        raise HTTPException(status_code=400, detail="License issue date cannot be in the future.")
+    if license_expiry_date <= license_issue_date:
+        raise HTTPException(status_code=400, detail="License expiry date must be after the issue date.")
+    if license_expiry_date <= today:
+        raise HTTPException(status_code=400, detail="The new license is already expired.")
+    if cfo.account_expiry_date and license_expiry_date <= cfo.account_expiry_date.date():
+        raise HTTPException(status_code=400, detail="The new license must expire after your current one.")
+
+    dup_lic = await db.execute(
+        select(User).filter(func.upper(User.license_number) == license_number, User.id != cfo.id)
+    )
+    if dup_lic.scalars().first():
+        raise HTTPException(status_code=400, detail="This license number is already registered to another account.")
+
+    conditions = [
+        func.lower(BlacklistedCompany.email) == email,
+        BlacklistedCompany.license_number == license_number,
+    ]
+    if cfo.company_domain and cfo.company_domain.lower() not in FREE_DOMAINS:
+        conditions.append(BlacklistedCompany.company_domain == cfo.company_domain.lower())
+    bl = await db.execute(select(BlacklistedCompany).filter(or_(*conditions)))
+    if bl.scalars().first():
+        raise HTTPException(status_code=403, detail="This company cannot be renewed on InsightFlow.")
+
+    pending = await db.execute(
+        select(RenewalRequest).filter(RenewalRequest.cfo_id == cfo.id, RenewalRequest.status == "pending")
+    )
+    if pending.scalars().first():
+        raise HTTPException(status_code=400, detail="You already have a renewal request waiting for admin review.")
+
+    stored_name = await _store_license_file(license_file)
+    try:
+        req = RenewalRequest(
+            cfo_id=cfo.id,
+            license_number=license_number,
+            license_issue_date=license_issue_date,
+            license_expiry_date=license_expiry_date,
+            trade_license_url=f"/uploads/licenses/{stored_name}",
+            status="pending",
+        )
+        db.add(req)
+
+        admins = (await db.execute(select(User).filter(User.role == RoleEnum.admin))).scalars().all()
+        notif_msg = f"License renewal request from {cfo.name or cfo.email} ({cfo.company_name}). Please review."
+        for admin in admins:
+            db.add(Notification(admin_id=admin.id, message=notif_msg, is_read=False))
+        await db.commit()
     except Exception:
         (UPLOAD_DIR / stored_name).unlink(missing_ok=True)
         raise
 
-    await notification_manager.broadcast(json.dumps({
-        "type": "cfo_registered",
-        "message": notif_msg,
-    }))
-
-    return {
-        "message": "Registration received. You will get an email as soon as an admin approves your account.",
-        "cfo_id": new_cfo.id,
-    }
+    await notification_manager.broadcast(json.dumps({"type": "renewal_requested", "message": notif_msg}))
+    return {"message": "Renewal request submitted. You will get an email once the admin reviews it."}
 
 
 @router.post("/cfo/invite-manager", tags=["CFO Operation"])

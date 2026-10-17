@@ -66,9 +66,21 @@ app.include_router(users.router, prefix="/api/users", tags=["Users & RBAC"])
 
 # ---- serve the website (backend/../frontend) at "/" -------------------------------------
 # Registered LAST so every /api/... route above wins.
+class NoCacheStaticFiles(StaticFiles):
+    """Serve the website with 'Cache-Control: no-cache': the browser must re-check with the
+    server on every load (a cheap 304 if nothing changed), so an updated admin.html / api.js /
+    app.js always shows up, no Ctrl+Shift+R needed."""
+
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        if response.status_code in (200, 304):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
+
 FRONTEND_DIR = Path(__file__).resolve().parents[2] / "frontend"
 if FRONTEND_DIR.is_dir():
-    app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
+    app.mount("/", NoCacheStaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
 else:
     @app.get("/")
     def root():

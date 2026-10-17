@@ -34,6 +34,7 @@ class User(base):
     license_expiry_date = Column(Date, nullable=True)
     is_approved = Column(Boolean, default=False) 
     account_expiry_date = Column(DateTime, nullable=True)
+    last_reminder_days = Column(Integer, nullable=True)   # <-- ye line add karein
     
     # Manager Specific Fields
     region = Column(String, nullable=True)
@@ -70,6 +71,7 @@ class ManagerInvitation(base):
     otp_code = Column(String, nullable=True)
     otp_expiry = Column(DateTime, nullable=True)
     is_verified = Column(Boolean, default=False)
+    otp_attempts = Column(Integer, default=0, nullable=False, server_default="0")
     
     
 class Notification(base):
@@ -94,3 +96,18 @@ class BlacklistedCompany(base):
     license_number = Column(String, nullable=True)
     reason = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+# NEW: license renewal requests (status: pending / approved / rejected)
+class RenewalRequest(base):
+    __tablename__ = "renewal_requests"
+
+    id = Column(Integer, primary_key=True, index=True)
+    cfo_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    license_number = Column(String, nullable=False)
+    license_issue_date = Column(Date, nullable=False)
+    license_expiry_date = Column(Date, nullable=False)
+    trade_license_url = Column(String, nullable=True)
+    status = Column(String, default="pending", nullable=False)
+    reject_reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    reviewed_at = Column(DateTime, nullable=True)

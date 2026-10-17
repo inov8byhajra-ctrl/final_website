@@ -11,6 +11,29 @@
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="design.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <style>
+        /* ---- CFO team side panel ---- */
+        tr[data-cfo] { cursor: pointer; transition: background .15s }
+        tr[data-cfo]:hover { background: rgba(122, 28, 44, .045) }
+        .dwo { position: fixed; inset: 0; z-index: 1000; background: rgba(74, 14, 23, .35); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .25s }
+        .dwo.open { opacity: 1; pointer-events: auto }
+        .dw { position: fixed; top: 0; right: 0; height: 100%; width: min(440px, 100vw); z-index: 1001; background: #fff; border-radius: 24px 0 0 24px; box-shadow: -24px 0 60px -20px rgba(74, 14, 23, .35); transform: translateX(105%); transition: transform .3s cubic-bezier(.2, .8, .2, 1); display: flex; flex-direction: column }
+        .dw.open { transform: none }
+        .dw-h { padding: 26px 26px 18px; border-bottom: 1px solid #f0e6e6; position: relative; background: linear-gradient(180deg, #fbf3f1, #fff) ; border-radius: 24px 0 0 0 }
+        .dw-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ead9d9; background: #fff; color: var(--wine); font-size: 1.1rem; cursor: pointer; line-height: 1 }
+        .dw-x:hover { background: #f7ecec }
+        .dw-h h2 { font-family: "Newsreader", serif; font-size: 1.6rem; margin: 4px 0 2px; color: var(--wine); font-weight: 600; padding-right: 36px }
+        .dw-b { padding: 18px 26px 28px; overflow-y: auto; flex: 1 }
+        .dw-n { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: .85rem; color: var(--mut); font-weight: 600 }
+        .dw-c { border: 1px solid #eee2e2; border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; display: flex; gap: 12px; align-items: center; justify-content: space-between; background: #fffdfd }
+        .dw-c .av { width: 38px; height: 38px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--wine), #a8324a); color: #fff; font-weight: 700; display: grid; place-items: center; text-transform: uppercase }
+        .dw-c .in { flex: 1; min-width: 0 }
+        .dw-c .in b { display: block }
+        .dw-c .in small { color: var(--mut); display: block; overflow: hidden; text-overflow: ellipsis }
+        .dw-reg { display: inline-block; margin-top: 6px; font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 999px; background: #f6ebe9; color: var(--wine) }
+        .dw-warn { background: #fdecec; color: #a11a1a; border-radius: 12px; padding: 10px 14px; font-size: .82rem; margin-bottom: 14px; font-weight: 600 }
+        .dw-empty { text-align: center; color: var(--mut); padding: 34px 10px; border: 1.5px dashed #ead9d9; border-radius: 16px }
+    </style>
 </head>
 
 <body>
@@ -22,6 +45,7 @@
     <script src="app.js"></script>
     <script>
         const BTN = 'padding:7px 16px;font-size:.85rem';
+        let MG = [], CFOS = [], OPEN_CFO = null;   // managers, approved CFOs, CFO whose panel is open
         const BLOCK_BTN = 'padding:4px 12px;font-size:.8rem;color:#fff;border:none;border-radius:4px;cursor:pointer;';
         const fd = d => d ? new Date(d + 'T00:00:00').toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
         const who = c => `<b>${esc(c.name || '—')}</b><br><small style="color:var(--mut)">${esc(c.email)}</small>`;
@@ -34,6 +58,11 @@
 <div class="sc"><small>Approved CFOs</small><b id="k2">–</b><span>Can access their dashboard</span></div>
 <div class="sc"><small>Regional managers</small><b id="k3">–</b><span>Invited by CFOs and verified</span></div>
 <div class="sc"><small>Live updates</small><b id="k4">Connecting…</b><span>New sign-ups appear instantly</span></div></div>
+
+<div class="pn" id="tt" hidden><h3>Test tools</h3><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><input type="date" id="tdate" style="padding:6px 8px;border-radius:8px;border:1px solid #e5e5e5"><label style="font-size:.85rem"><input type="checkbox" id="trst"> Reset reminders</label><button class="btn solid" style="padding:7px 16px;font-size:.85rem" data-a="runchk">Run expiry check now</button></div><p style="color:var(--mut);font-size:.8rem;margin-top:6px">A date after a CFO's expiry really blocks that CFO.</p></div>
+<div class="pn"><h3>License renewal requests</h3><div class="tw" id="rn"><p style="color:var(--mut)">Loading…</p></div></div>
+<div class="pn"><h3>Expiring soon (28 days)</h3><div class="tw" id="ex"><p style="color:var(--mut)">Loading…</p></div></div>
+
 <div class="pn"><h3>Pending approvals</h3><div class="tw" id="pt"><p style="color:var(--mut)">Loading…</p></div></div>
 <div class="pn"><h3>Approved CFOs</h3><div class="tw" id="at"><p style="color:var(--mut)">Loading…</p></div></div>
 <div class="pn"><h3>Regional Managers</h3><div class="tw" id="rm"><p style="color:var(--mut)">Loading…</p></div></div>
@@ -42,11 +71,13 @@
                 const setLive = on => { $('#k4').textContent = on ? 'Connected' : 'Reconnecting…' };
 
                 async function load() {
-                    let d, managers = [], blacklist = [];
+                    let d, managers = [], blacklist = [], renewals = [], expiring = [];
                     try {
                         d = await IF.api('/admin/cfos', { auth: true });
                         managers = await IF.api('/admin/regional-managers', { auth: true }).catch(() => []);
                         blacklist = await IF.api('/admin/blacklist', { auth: true }).catch(() => []);
+                        renewals = (await IF.api('/admin/renewals', { auth: true }).catch(() => ({ renewals: [] }))).renewals;
+                        expiring = (await IF.api('/admin/expiring-soon?days=28', { auth: true }).catch(() => ({ expiring: [] }))).expiring;
                     } catch (e) {
                         $('#pt').innerHTML = `<p class="err">${esc(e.message)}</p>`;
                         return;
@@ -57,6 +88,7 @@
                     $('#k3').textContent = d.stats.managers;
 
                     const pend = d.cfos.filter(c => !c.is_approved), appr = d.cfos.filter(c => c.is_approved);
+                    MG = managers; CFOS = d.cfos;
 
                     // 1. Pending CFOs
                     $('#pt').innerHTML = pend.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>Issued</th><th>Expires</th><th>Document</th><th class="r">Decision</th></tr>` +
@@ -72,10 +104,11 @@
                         : '<p style="color:var(--mut)">No CFOs are waiting for approval. You are all caught up.</p>';
 
                     // 2. Approved CFOs
-                    $('#at').innerHTML = appr.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>License expires</th><th>Status</th><th>Action</th></tr>` +
-                        appr.map(c => `<tr id="user-row-${c.id}">
-<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number || '—')}</td><td>${fd(c.license_expiry_date)}</td>
+                    $('#at').innerHTML = appr.length ? `<table><tr><th>CFO</th><th>Company</th><th>License no.</th><th>License expires</th><th>Status</th><th>Managers</th><th>Action</th></tr>` +
+                        appr.map(c => `<tr id="user-row-${c.id}" data-cfo="${c.id}" title="Click to see this CFO's managers">
+<td>${who(c)}</td><td>${co(c)}</td><td>${esc(c.license_number || '—')}</td><td>${fd((c.account_expiry_date || '').slice(0, 10))}</td>
 <td><span class="tag" id="status-tag-${c.id}" data-ok="Approved">${c.is_blocked ? 'Blocked' : 'Approved'}</span></td>
+<td><button class="btn" style="${BTN}" data-a="mgrs" data-id="${c.id}">View (${managers.filter(m => m.cfo_id === c.id).length})</button></td>
 <td><button class="btn" id="block-btn-${c.id}" style="${BLOCK_BTN}background:${c.is_blocked ? '#2e7d32' : '#4A0E17'}" onclick="toggleBlockUser(${c.id})">${c.is_blocked ? 'Unblock' : 'Block'}</button></td></tr>`).join('') + `</table>`
                         : '<p style="color:var(--mut)">No approved CFOs yet.</p>';
 
@@ -94,12 +127,47 @@
                     $('#bl').innerHTML = blacklist.length ? `<table><tr><th>Company</th><th>Domain</th><th>Email</th><th>License no.</th><th>Reason</th><th class="r">Action</th></tr>` +
                         blacklist.map(b => `<tr><td><b>${esc(b.company_name || '—')}</b></td><td>${esc(b.company_domain || '—')}</td><td>${esc(b.email || '—')}</td><td>${esc(b.license_number || '—')}</td><td>${esc(b.reason || '—')}</td><td class="r"><button class="btn" style="${BTN}" data-a="unbl" data-id="${b.id}">Remove</button></td></tr>`).join('') + `</table>`
                         : '<p style="color:var(--mut)">No blacklisted companies.</p>';
+                        $('#tt').hidden = !d.test_tools;
+
+$('#rn').innerHTML = renewals.length ? `<table><tr><th>CFO</th><th>Company</th><th>Old expiry</th><th>New license</th><th>Issued</th><th>Expires</th><th>Document</th><th class="r">Decision</th></tr>` +
+    renewals.map(r => `<tr><td>${who(r)}</td><td><b>${esc(r.company_name || '—')}</b></td><td>${fd(r.old_expiry)}</td><td>${esc(r.license_number)}</td><td>${fd(r.license_issue_date)}</td><td>${fd(r.license_expiry_date)}</td>
+<td>${r.has_license_file ? `<button class="btn" style="${BTN}" data-a="rview" data-id="${r.id}">View license</button>` : '—'}</td>
+<td class="r"><button class="btn solid" style="${BTN}" data-a="rok" data-id="${r.id}">Approve</button> <button class="btn" style="${BTN};color:#ba1a1a" data-a="rno" data-id="${r.id}">Reject</button></td></tr>`).join('') + `</table>`
+    : '<p style="color:var(--mut)">No renewal requests.</p>';
+
+$('#ex').innerHTML = expiring.length ? `<table><tr><th>CFO</th><th>Company</th><th>Expiry</th><th>Days left</th><th>Status</th></tr>` +
+    expiring.map(x => `<tr><td>${who(x)}</td><td><b>${esc(x.company_name || '—')}</b></td><td>${fd(x.expiry_date)}</td><td>${x.expired ? '—' : x.days_left}</td><td><span class="tag">${x.expired ? 'Expired' : x.is_blocked ? 'Blocked' : 'Active'}</span></td></tr>`).join('') + `</table>`
+    : '<p style="color:var(--mut)">No licenses expiring soon.</p>';
+
+                    if (OPEN_CFO !== null) renderTeam();   // keep the open side panel up to date
                 }
 
                 $('#pg').addEventListener('click', async e => {
+                    // click anywhere on an approved CFO row -> open that CFO's managers
+                    const row = e.target.closest('tr[data-cfo]');
+                    if (row && !e.target.closest('button, a, select, input')) return openTeam(+row.dataset.cfo);
+
                     const b = e.target.closest('button[data-a]'); if (!b) return; const id = +b.dataset.id, a = b.dataset.a;
                     try {
+                        if (a === 'mgrs') return openTeam(id);
                         if (a === 'view') return await IF.openProtectedFile('/admin/download-license/' + id);
+                        if (a === 'rview') return await IF.openProtectedFile('/admin/renewal-license/' + id);
+
+if (a === 'rok' || a === 'rno') {
+    let reason = null;
+    if (a === 'rok' && !confirm('Approve this renewal? The CFO and their managers get access again.')) return;
+    if (a === 'rno') { reason = prompt('Reason for rejection (the CFO will see this):'); if (reason === null) return; }
+    b.closest('tr').querySelectorAll('button').forEach(x => x.disabled = true);
+    const r = await IF.api('/admin/renewals/' + id + '/decision', { method: 'POST', auth: true, json: { approve: a === 'rok', reason } });
+    IF.toast(r.message + (r.email_sent === false ? ' (email could not be sent)' : ''), r.email_sent === false);
+    return load();
+}
+
+if (a === 'runchk') {
+    const r = await IF.api('/admin/run-expiry-check', { method: 'POST', auth: true, json: { as_of: $('#tdate').value || null, reset_reminders: $('#trst').checked } });
+    IF.toast(`Done (${r.as_of}): ${r.reminders_sent} reminders, ${r.blocked} blocked.`);
+    return load();
+}
 
                         if (a === 'bl') {
                             if (!confirm('Blacklist this company? The registration is deleted and they cannot sign up again.')) return;
@@ -139,8 +207,58 @@
                     ws.onmessage = ev => { let m; try { m = JSON.parse(ev.data) } catch (e) { m = { message: ev.data } } IF.toast(m.message || 'New activity'); load(); };
                     ws.onclose = () => { setLive(false); setTimeout(live, 3000); };
                 }
+                window.__reload = load;
                 load(); live();
             });
+
+        // ---- CFO team side panel ----
+        document.body.insertAdjacentHTML('beforeend', `<div class="dwo" id="dwo"></div>
+<aside class="dw" id="dw" role="dialog" aria-modal="true" aria-labelledby="dw-t" aria-hidden="true"></aside>`);
+
+        function openTeam(cfoId) {
+            OPEN_CFO = cfoId; renderTeam();
+            $('#dwo').classList.add('open'); $('#dw').classList.add('open'); $('#dw').setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+        }
+        function closeTeam() {
+            OPEN_CFO = null;
+            $('#dwo').classList.remove('open'); $('#dw').classList.remove('open'); $('#dw').setAttribute('aria-hidden', 'true');
+            document.body.style.overflow = '';
+        }
+        function renderTeam() {
+            const c = CFOS.find(x => x.id === OPEN_CFO);
+            if (!c) return closeTeam();
+            const team = MG.filter(m => m.cfo_id === c.id);
+            $('#dw').innerHTML = `<div class="dw-h">
+<button class="dw-x" data-x="close" aria-label="Close">✕</button>
+<span class="eye">Company team</span>
+<h2 id="dw-t">${esc(c.company_name || '—')}</h2>
+<div><b>${esc(c.name || '—')}</b> <span class="tag">${c.is_blocked ? 'Blocked' : 'Approved'}</span><br><small style="color:var(--mut)">${esc(c.email)}</small></div></div>
+<div class="dw-b">
+${c.is_blocked ? '<div class="dw-warn">This CFO is blocked, so all managers below cannot sign in either.</div>' : ''}
+<div class="dw-n"><span>Managers under this CFO</span><span>${team.length}</span></div>
+${team.length ? team.map(m => `<div class="dw-c"><div class="av">${esc((m.name || m.email || '?').trim().charAt(0))}</div>
+<div class="in"><b>${esc(m.name || '—')}</b><small>${esc(m.email)}</small><span class="dw-reg">${esc(m.region || 'No region')}</span></div>
+<div style="text-align:right"><span class="tag" style="display:inline-block;margin-bottom:8px">${m.is_blocked ? 'Blocked' : 'Verified'}</span><br>
+<button class="btn" style="${BLOCK_BTN}background:${m.is_blocked ? '#2e7d32' : '#4A0E17'}" data-x="mblock" data-id="${m.id}">${m.is_blocked ? 'Unblock' : 'Block'}</button></div></div>`).join('')
+ : '<div class="dw-empty">This CFO has not added any managers yet.</div>'}
+</div>`;
+        }
+        $('#dwo').addEventListener('click', closeTeam);
+        document.addEventListener('keydown', e => { if (e.key === 'Escape' && OPEN_CFO !== null) closeTeam(); });
+        $('#dw').addEventListener('click', async e => {
+            const x = e.target.closest('[data-x]'); if (!x) return;
+            if (x.dataset.x === 'close') return closeTeam();
+            if (x.dataset.x === 'mblock') {
+                x.disabled = true;
+                try {
+                    const r = await IF.api(`/admin/users/${+x.dataset.id}/toggle-block`, { method: 'PATCH', auth: true });
+                    IF.toast(r.message || 'User block status updated successfully.');
+                } catch (ex) { IF.toast(`Error: ${ex.message}`, true); }
+                // reload everything; load() refreshes the panel too
+                if (typeof window.__reload === 'function') window.__reload(); 
+            }
+        });
 
         // Block / unblock for approved CFOs and managers
         async function toggleBlockUser(userId) {

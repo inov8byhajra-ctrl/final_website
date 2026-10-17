@@ -7,7 +7,7 @@ import html
 from email.message import EmailMessage
 from urllib.parse import quote
 import aiosmtplib
-
+import html
 from app.core.config import settings
 
 # InsightFlow Brand Colors
@@ -184,3 +184,57 @@ def admin_new_cfo_registration_email(cfo_name: str, company: str, dashboard_url:
             + _button(dashboard_url, "Review in Dashboard"))
             
     return subject, text, _wrap("New CFO Registration", body)
+
+def license_reminder_email(name: str, days_left: int, expiry: str, renew_url: str) -> tuple[str, str, str]:
+    day_word = "day" if days_left == 1 else "days"
+    subject = f"Your InsightFlow license expires in {days_left} {day_word}"
+
+    text = (f"Hi {name},\n\nYour license expires on {expiry} ({days_left} {day_word} left). "
+            f"Please renew it before then, otherwise your account and your managers' access will be blocked.\n"
+            f"Renew here: {renew_url}\n\n- The InsightFlow team")
+
+    body = (f"<p>Hi {html.escape(name)},</p>"
+            f"<p>Your license expires on <b>{html.escape(expiry)}</b> ({days_left} {day_word} left). "
+            f"If it is not renewed, your account and your managers' access will be <b>blocked</b>.</p>"
+            + _button(renew_url, "Renew License"))
+
+    return subject, text, _wrap("License Expiring Soon", body)
+
+def license_expired_email(name: str, renew_url: str) -> tuple[str, str, str]:
+    subject = "Your InsightFlow license has expired"
+
+    text = (f"Hi {name},\n\nYour license has expired, so your account and your managers' access are blocked.\n"
+            f"Submit your updated license here: {renew_url}\n\n- The InsightFlow team")
+
+    body = (f"<p>Hi {html.escape(name)},</p>"
+            f"<p>Your license has <b>expired</b>, so your account and your managers' access are blocked. "
+            f"Submit your updated license to regain access.</p>"
+            + _button(renew_url, "Renew License"))
+
+    return subject, text, _wrap("License Expired", body)
+
+def renewal_approved_email(name: str, new_expiry: str, login_url: str) -> tuple[str, str, str]:
+    subject = "Your license renewal was approved"
+
+    text = (f"Hi {name},\n\nYour renewal is approved. Your account is active until {new_expiry}.\n"
+            f"Sign in: {login_url}\n\n- The InsightFlow team")
+
+    body = (f"<p>Hi {html.escape(name)},</p>"
+            f"<p>Your renewal is <b>approved</b>. Your account is active until <b>{html.escape(new_expiry)}</b>, "
+            f"and your managers have access again.</p>"
+            + _button(login_url, "Sign in to InsightFlow"))
+
+    return subject, text, _wrap("Renewal Approved", body)
+
+def renewal_rejected_email(name: str, reason: str, renew_url: str) -> tuple[str, str, str]:
+    subject = "Your license renewal could not be approved"
+
+    text = (f"Hi {name},\n\nYour renewal was not approved.\nReason: {reason}\n"
+            f"You can submit a new license here: {renew_url}\n\n- The InsightFlow team")
+
+    body = (f"<p>Hi {html.escape(name)},</p>"
+            f"<p>Your renewal was <b>not approved</b>.</p>"
+            f"<p><b>Reason:</b> {html.escape(reason)}</p>"
+            + _button(renew_url, "Submit Again"))
+
+    return subject, text, _wrap("Renewal Not Approved", body)

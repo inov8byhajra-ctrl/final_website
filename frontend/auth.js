@@ -1,3 +1,9 @@
+/* NOTE: login.html must load these scripts in this order:
+   <script src="api.js"></script>
+   <script src="validators.js"></script>
+   <script src="auth.js"></script>                                           */
+if (typeof V === 'undefined') console.error('validators.js is not loaded. Add <script src="validators.js"></script> before auth.js in login.html');
+
 try { const _s = JSON.parse(localStorage.getItem('if_session')); if (_s && _s.k === 0 && !sessionStorage.getItem('if_tab')) localStorage.removeItem('if_session') } catch (e) { }
 const $ = s => document.querySelector(s);
 const q = new URLSearchParams(location.search), next = (q.get('next') || '').replace(/[^\w.\-]/g, '');
@@ -17,39 +23,55 @@ function say(el, text, ok) {
 }
 function busy(btn, on, label) { if (on) { btn.dataset.l = btn.textContent; btn.textContent = label; btn.disabled = true } else { btn.textContent = btn.dataset.l || btn.textContent; btn.disabled = false } }
 
-/* same rules as the backend (is_strong_password): 8+ chars, 1 uppercase, 1 digit, 1 symbol from @$!%*?& */
-function passwordProblem(p) {
-    if (p.length < 8) return 'Password must be at least 8 characters long.';
-    if (!/[A-Z]/.test(p)) return 'Password must contain at least one UPPERCASE letter (A-Z).';
-    if (!/\d/.test(p)) return 'Password must contain at least one number (0-9).';
-    if (!/[@$!%*?&]/.test(p)) return 'Password must contain at least one symbol: @ $ ! % * ? &';
-    return '';
-}
-
 function todayStr() {
     const d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 }
+
+/* ---------- live input filters (stop bad characters while typing / pasting) ---------- */
+V.lettersOnly($('#rn'));                 // full name: letters + spaces only
+$('#rco').maxLength = 100;               // company name length limit
+$('#re').maxLength = 120;                // emails
+$('#le').maxLength = 120;
+$('#fe').maxLength = 120;
+$('#rl').maxLength = 40;                 // license number: letters, digits, - and / only (auto uppercase)
+
+const LIC_EMAIL_MSG = 'License number cannot be an email address or contain "@". Enter the number printed on your trade license.';
+$('#rl').addEventListener('input', e => {
+    const raw = e.target.value;
+    /* an "@" means the user typed an email by mistake: keep it visible and warn,
+       instead of silently stripping it (that turned emails into e.g. CURSORUSER713GMAILCOM) */
+    if (raw.includes('@')) {
+        e.target.value = raw.toUpperCase().replace(/[^A-Z0-9\-\/@]/g, '');
+        say($('#re2'), LIC_EMAIL_MSG);
+        return;
+    }
+    e.target.value = raw.toUpperCase().replace(/[^A-Z0-9\-\/]/g, '');
+});
+$('#rw').maxLength = 72;                 // bcrypt limit
+$('#rc').maxLength = 72;
 
 /* ---------- create account (CFO) -> POST /cfo/signup ---------- */
 $('#rf').onsubmit = async e => {
     e.preventDefault(); const g = x => $(x).value, er = $('#re2'), btn = e.target.querySelector('button.solid');
     say(er, '');
 
-    const name = g('#rn').trim(), company = g('#rco').trim(), email = g('#re').trim().toLowerCase(), lic = g('#rl').trim();
+    const name = g('#rn').trim().replace(/\s+/g, ' '), company = g('#rco').trim().replace(/\s+/g, ' '),
+        email = g('#re').trim().toLowerCase(), lic = g('#rl').trim().toUpperCase();
     const issue = g('#ri'), expiry = g('#rx'), today = todayStr();
 
-    if (!name) return say(er, 'Please enter your full name.');
-    if (!company) return say(er, 'Please enter your company name.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return say(er, 'Please enter a valid email address.');
-    if (!lic) return say(er, 'Please enter your license number.');
+    let p;
+    if ((p = V.name(name, 'Full name'))) return say(er, p);
+    if ((p = V.company(company))) return say(er, p);
+    if ((p = V.email(email))) return say(er, p);
+    if (lic.includes('@')) return say(er, LIC_EMAIL_MSG);
+    if ((p = V.license(lic))) return say(er, p);
     if (!issue || !expiry) return say(er, 'Please select the license issue and expiry dates.');
     if (issue > today) return say(er, 'Issue date cannot be in the future.');
     if (expiry <= issue) return say(er, 'Expiry date must be after the issue date.');
     if (expiry <= today) return say(er, 'This license has expired. Please use a license that is still valid.');
     if (!LF) return say(er, 'Please upload your license document.');
-    const pw = passwordProblem(g('#rw'));
-    if (pw) return say(er, pw);
+    if ((p = V.password(g('#rw')))) return say(er, p);
     if (g('#rw') !== g('#rc')) return say(er, 'Passwords do not match.');
 
     const fd = new FormData();
@@ -74,12 +96,21 @@ $('#rf').onsubmit = async e => {
 /* ---------- sign in -> POST /login ---------- */
 $('#lf').onsubmit = async e => {
     e.preventDefault(); const er = $('#le2'), btn = e.target.querySelector('button.solid'); say(er, '');
+
+    const emailErr = V.email($('#le').value);
+    if (emailErr) return say(er, emailErr);
+    if (!$('#lw').value) return say(er, 'Please enter your password.');
+
     busy(btn, true, 'Signing in…');
     try {
         const d = await IF.api('/login', { method: 'POST', form: { username: $('#le').value.trim(), password: $('#lw').value } });
         IF.saveLogin(d, $('#lk').checked);
         location.href = d.role === 'admin' ? 'admin.html' : (next || 'home.html');
-    } catch (ex) { say(er, ex.message); busy(btn, false) }
+    } catch (ex) {
+        say(er, ex.message); busy(btn, false);
+        const m = ex.message.match(/^(.*?)\s*(https?:\/\/\S+)$/);
+        if (m) { er.textContent = m[1] + ' '; const a = document.createElement('a'); a.href = 'renew.html'; a.textContent = 'Renew license'; er.appendChild(a); }
+    }
 };
 
 
@@ -88,8 +119,12 @@ $('#ff').onsubmit = async e => {
     e.preventDefault();
     const er = $('#fe2'), btn = e.target.querySelector('button.solid');
     say(er, '');
-    busy(btn, true, 'Sending link…');
 
+    // check the email format BEFORE calling the server
+    const emailErr = V.email($('#fe').value);
+    if (emailErr) return say(er, emailErr);
+
+    busy(btn, true, 'Sending link…');
     try {
         const resp = await IF.api('/api/users/forgot-password', {
             method: 'POST',
@@ -99,6 +134,14 @@ $('#ff').onsubmit = async e => {
         e.target.reset();
     } catch (ex) {
         say(er, ex.message);
+        // email is not registered -> show a clear message + a shortcut to create an account
+        if (ex.status === 404) {
+            er.appendChild(document.createTextNode(' '));
+            const a = document.createElement('a');
+            a.href = '#'; a.textContent = 'Create an account';
+            a.onclick = ev => { ev.preventDefault(); say(er, ''); tab('register'); };
+            er.appendChild(a);
+        }
     } finally {
         busy(btn, false);
     }
