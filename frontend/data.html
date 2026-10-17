@@ -22,17 +22,66 @@
     <script src="api.js"></script>
     <script src="app.js"></script>
     <script>
-        page('Data', () => `<div class="hg"><div><h1 class="ht">Data Ingestion</h1><p class="lead">Upload CSV, XLS or XLSX. Every file is validated on arrival, then shows up in Unify.</p><a class="btn solid" href="unify.html">Explore the flow ↗</a></div><div class="stage2">${BALL()}<div class="fx" style="top:10%;right:6%">98.7% validated</div><div class="fx" style="bottom:8%;left:8%">3.2× faster review</div></div></div>
-<div class="mini" style="grid-template-columns:repeat(3,1fr)"><div class="sc"><small>Total rows ingested</small><b>47K+</b><span>Across 3 datasets</span></div><div class="sc"><small>Validation pass rate</small><b>98.7%</b><span>Schema, nulls, types</span></div><div class="sc"><small>Storage backend</small><b>PostgreSQL</b><span>Cache enabled</span></div></div>
+        page('Data', () => `<div class="hg"><div><h1 class="ht">Data Ingestion</h1><p class="lead">Upload CSV, XLS or XLSX. Every file is validated on arrival, then shows up in Unify.</p><a class="btn solid" href="unify.html">Explore the flow ↗</a></div><div class="stage2">${BALL()}<div class="fx" style="top:10%;right:6%">Validated on upload</div><div class="fx" style="bottom:8%;left:8%">Stored in PostgreSQL</div></div></div>
+<div class="mini" style="grid-template-columns:repeat(3,1fr)"><div class="sc"><small>Total rows ingested</small><b id="s1">0</b><span id="s1n">Across 0 datasets</span></div><div class="sc"><small>Validation pass rate</small><b id="s2">-</b><span>Schema, nulls, types</span></div><div class="sc"><small>Storage backend</small><b>PostgreSQL</b><span>Cache enabled</span></div></div>
 <h2 style="text-align:center;color:var(--wine);margin:26px 0 14px">Upload a dataset</h2>
 <label class="up" id="dz"><input type="file" id="fi" multiple accept=".csv,.xls,.xlsx" hidden><svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="#F7EAE6" stroke-width="1.8" stroke-linecap="round"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 17v3h16v-3"/></svg><br><b>Drop files here, or click to choose</b><br><span>CSV</span><span>XLS</span><span>XLSX</span></label>
-<div class="pn" style="margin-top:18px"><h3>Uploaded files</h3><div class="tw"><table id="ft"><tr><th>File</th><th>Rows</th><th>Checks</th><th>Status</th></tr></table></div><p><button class="btn" id="cl">Clear list</button> <a class="btn solid" href="unify.html">Continue to Unify</a></p></div>`,
-            () => {
-                const d = $('#dz'), f = $('#fi'), draw1 = x => $('#ft').insertAdjacentHTML('beforeend', `<tr><td>${esc(x.name)}</td><td>${x.rows}</td><td>${x.ok ? 'Schema, nulls, types' : 'Unsupported type'}</td><td><span class="tag">${x.ok ? 'Passed' : 'Rejected'}</span></td></tr>`);
-                st.get('if_files', []).forEach(draw1);
-                async function add(fl) { const a = st.get('if_files', []); for (const x of fl) { const ok = /\.(csv|xls|xlsx)$/i.test(x.name); let rows = '-'; if (ok && /\.csv$/i.test(x.name)) { rows = Math.max(0, (await x.text()).trim().split(/\r?\n/).length - 1) } else if (ok) rows = 'Excel'; const r = { name: x.name, rows, ok }; a.push(r); draw1(r) } st.set('if_files', a); st.set('if_unified', false) }
-                d.ondragover = e => { e.preventDefault(); d.classList.add('h') }; d.ondragleave = () => d.classList.remove('h'); d.ondrop = e => { e.preventDefault(); d.classList.remove('h'); add(e.dataTransfer.files) }; f.onchange = () => add(f.files);
-                $('#cl').onclick = () => { st.set('if_files', []); st.set('if_unified', false); location.reload() }
+<p id="um" style="text-align:center;color:var(--wine);margin-top:12px"></p>
+<div class="pn" style="margin-top:18px"><h3>Uploaded files</h3><div class="tw"><table id="ft"></table></div><p><button class="btn" id="cl">Refresh</button> <a class="btn solid" href="unify.html">Continue to Unify</a></p></div>`,
+            (u) => {
+                const API = location.port === '8000' ? '' : 'http://127.0.0.1:8000';
+                const H = { Authorization: 'Bearer ' + u.token };
+                const d = $('#dz'), f = $('#fi'), um = $('#um');
+                const HEAD = '<tr><th>File</th><th>Uploaded by</th><th>Region</th><th>Rows</th><th>Checks</th><th>Status</th></tr>';
+                function show(list) {
+                    $('#ft').innerHTML = HEAD + list.map(x => {
+                        const ok = x.status === 'stored';
+                        const chk = ok ? 'Schema, nulls, types' : esc(x.error_message || 'Processing');
+                        const tag = ok ? 'Passed' : (x.status === 'rejected' ? 'Rejected' : 'Pending');
+                        return `<tr><td>${esc(x.filename)}</td><td>${esc(x.uploader || '')}</td><td>${esc(x.region || '')}</td><td>${ok ? x.row_count : '-'}</td><td>${chk}</td><td><span class="tag">${tag}</span></td></tr>`;                    }).join('');
+                    const good = list.filter(x => x.status === 'stored');
+                    $('#s1').textContent = good.reduce((a, x) => a + x.row_count, 0).toLocaleString();
+                    $('#s1n').textContent = 'Across ' + good.length + ' datasets';
+                    $('#s2').textContent = list.length ? (good.length / list.length * 100).toFixed(1) + '%' : '-';
+                    // keep Unify page working (it reads this list)
+                    st.set('if_files', list.map(x => ({ name: x.filename, rows: x.row_count, ok: x.status === 'stored' })));
+                }
+
+                async function load() {
+                    try {
+                        const r = await fetch(API + '/api/upload', { headers: H });
+                        if (r.status === 401) { signOut(); return }
+                        if (!r.ok) { um.textContent = 'Could not load uploads (' + r.status + ')'; return }
+                        show(await r.json());
+                    } catch (e) { um.textContent = 'Server not reachable.' }
+                }
+
+                async function add(files) {
+                    const msgs = [];
+                    for (const x of files) {
+                        if (!/\.(csv|xls|xlsx)$/i.test(x.name)) { msgs.push(x.name + ': unsupported file type'); continue }
+                        const fd = new FormData(); fd.append('file', x);
+                        try {
+                            const r = await fetch(API + '/api/upload', { method: 'POST', headers: H, body: fd });
+                            const j = await r.json().catch(() => ({}));
+                            if (r.status === 401) { signOut(); return }
+                            if (!r.ok) {
+                                const dt = j.detail;
+                                msgs.push(x.name + ': ' + (typeof dt === 'string' ? dt : (dt && dt.errors ? dt.errors.join(' | ') : 'Upload failed')));
+                            }
+                        } catch (e) { msgs.push(x.name + ': server not reachable') }
+                    }
+                    um.innerHTML = msgs.map(esc).join('<br>');
+                    st.set('if_unified', false);
+                    await load();
+                }
+
+                d.ondragover = e => { e.preventDefault(); d.classList.add('h') };
+                d.ondragleave = () => d.classList.remove('h');
+                d.ondrop = e => { e.preventDefault(); d.classList.remove('h'); add(e.dataTransfer.files) };
+                f.onchange = () => { add(f.files); f.value = '' };
+                $('#cl').onclick = load;
+                load();
             })
     </script>
 </body>
