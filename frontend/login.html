@@ -72,22 +72,23 @@
       </div>
 
       <!-- Reset password -->
-      <div id="fp" hidden>
-        <h3>Reset password</h3>
-        <p class="s">Enter your account email and choose a new password.</p>
-        <form id="ff">
-          <div class="f"><label for="fe">Email</label><input id="fe" type="email" required placeholder="name@company.com"></div>
-          <div class="f"><label for="fw">New password</label><div class="pw"><input id="fw" type="password" required minlength="6" placeholder="At least 6 characters"><button type="button" class="sh" data-t="fw">Show</button></div></div>
-          <div class="f"><label for="fc">Confirm new password</label><div class="pw"><input id="fc" type="password" required placeholder="Repeat new password"><button type="button" class="sh" data-t="fc">Show</button></div></div>
-          <p class="err" id="fe2" role="alert"></p>
-          <button class="btn solid">Reset password</button>
-        </form>
-        <div class="sw">Remembered it? <a onclick="tab('login')">Back to sign in</a></div>
-      </div>
+<div id="fp" hidden>
+  <h3>Reset password</h3>
+  <p class="s">Enter your account email and we'll send you a reset link.</p>
+  <form id="ff">
+    <div class="f"><label for="fe">Email</label><input id="fe" type="email" required placeholder="name@company.com"></div>
+    <p class="err" id="fe2" role="alert"></p>
+    <button class="btn solid">Send reset link</button>
+  </form>
+  <div class="sw">Remembered it? <a onclick="tab('login')">Back to sign in</a></div>
+</div>
     </div>
   </div>
 
+ 
   <script src="js/common.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/tracker.js"></script>
   <script src="js/auth.js"></script>
 </body>
 </html>
