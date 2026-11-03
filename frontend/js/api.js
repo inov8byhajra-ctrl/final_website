@@ -7,7 +7,7 @@
     function getSession() { try { return JSON.parse(localStorage.getItem('if_session')) } catch (e) { return null } }
     function setSession(s) { try { localStorage.setItem('if_session', JSON.stringify(s)) } catch (e) { } }
     function clearSession() { try { localStorage.removeItem('if_session') } catch (e) { } }
-    function homeFor(role) { return role === 'admin' ? 'admin.html' : 'home.html' }
+    function homeFor(role) { return role === 'admin' ? '/admin/admin.html' : '/home.html' }
 
     /* session object saved after every successful login / manager verification */
     function saveLogin(data, keep) {
@@ -32,7 +32,7 @@
 
     function logout(toLogin) {
         clearSession();
-        location.href = toLogin ? 'login.html?next=' + encodeURIComponent(location.pathname.split('/').pop() || 'home.html') : 'index.html';
+        location.href = toLogin ? '/login.html?next=' + encodeURIComponent(location.pathname.split('/').pop() || 'home.html') : '/index.html';
     }
 
     /* api('/api/auth/login', { method:'POST', form:{...} })       -> application/x-www-form-urlencoded
@@ -41,9 +41,10 @@
     async function api(path, o) {
         o = o || {};
         var headers = {}, body;
-        if (o.auth) {
+                if (o.auth) {
             var s = getSession();
-            if (s && s.token && !tokenExpired(s.token)) headers['Authorization'] = 'Bearer ' + s.token;   /* login optional now */
+            if (!s || !s.token || tokenExpired(s.token)) { logout(true); throw new Error('Session expired. Please sign in again.'); }
+            headers['Authorization'] = 'Bearer ' + s.token;
         }
         if (o.json) { headers['Content-Type'] = 'application/json'; body = JSON.stringify(o.json) }
         else if (o.form) { body = new URLSearchParams(o.form) }
@@ -52,14 +53,12 @@
         var res;
         try { res = await fetch(API_BASE + path, { method: o.method || 'GET', headers: headers, body: body }) }
         catch (e) {
-            var mr = window.IF_MOCK && window.IF_MOCK.handle(path, o);   /* dummy backend when the real one is offline */
-            if (mr !== undefined) return mr;
             throw new Error('Cannot reach the server. Please make sure the backend is running.')
         }
 
         var data = null; try { data = await res.json() } catch (e) { }
         if (!res.ok) {
-            
+            if (res.status === 401 && o.auth) logout(true);
             var err = new Error(errText(data, res.status)); err.status = res.status; throw err;
         }
         return data;
@@ -90,7 +89,7 @@
     async function openProtectedFile(path) {
         var s = getSession(), res;
         try { res = await fetch(API_BASE + path, { headers: (s && s.token && !tokenExpired(s.token)) ? { Authorization: 'Bearer ' + s.token } : {} }) }
-        catch (e) { if (window.IF_MOCK) return showDoc(window.IF_MOCK.demoDoc(), 'text/html'); throw e }
+        catch (e) { throw e }
         if (!res.ok) throw new Error('Could not open the document.');
         var blob = await res.blob();
         showDoc(URL.createObjectURL(blob), blob.type);
@@ -98,8 +97,7 @@
 
     /* called by every app page: drops the session if the server no longer accepts the token */
     async function verify() {
-        return; /* login removed: no session check */
-        var s = getSession(); if (!s) return;
+        var s = getSession(); if (!s) return logout(true);
         if (!s.token || tokenExpired(s.token)) return logout(true);
         try {
             var res = await fetch(API_BASE + '/api/users/me', { headers: { Authorization: 'Bearer ' + s.token } });
