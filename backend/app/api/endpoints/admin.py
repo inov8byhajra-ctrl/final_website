@@ -17,7 +17,7 @@ from app.core.config import settings, local_now, local_tz
 from app.core.validators import clean_license
 from app.core.database import AsyncSessionLocal, get_db
 from app.core.scheduler import run_expiry_check
-from app.models.user import RoleEnum, User, Notification, BlacklistedCompany, RenewalRequest
+from app.models.user import RoleEnum, User, Notification, BlacklistedCompany, RenewalRequest, ActivityEvent , UserPresence
 from app.schemas.user import AdminApproveLicense, BlacklistCompany, RenewalDecision, RunExpiryCheck
 from app.utils.email import (
       cfo_approved_email, cfo_rejected_email, send_email,
@@ -111,6 +111,36 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         notification_manager.disconnect(websocket)
 
+@router.get("/admin/activity", tags=["Admin Operations"])
+async def admin_activity(
+    days: int = 30,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    _require_admin(current_user)
+    since = datetime.utcnow() - timedelta(days=max(1, min(days, 90)))
+
+    rows = await db.execute(
+        select(ActivityEvent, User)
+        .join(User, User.id == ActivityEvent.user_id)
+        .filter(ActivityEvent.at >= since)
+        .order_by(ActivityEvent.at.desc())
+        .limit(3000)
+    )
+    events = []
+    for e, u in rows.all():
+        ev = {
+            "id": e.id, "type": e.type, "at": e.at.isoformat() + "Z",
+            "email": u.email, "name": u.name or u.email,
+            "role": "cfo" if u.role == RoleEnum.cfo else "regional_manager",
+        }
+        if e.type == "upload":
+            ev["file_name"], ev["file_size"] = e.file_name, e.file_size
+        events.append(ev)
+
+    pres = await db.execute(select(UserPresence, User).join(User, User.id == UserPresence.user_id))
+    presence = {u.email: p.last_seen.isoformat() + "Z" for p, u in pres.all()}
+    return {"events": events, "presence": presence}
 
 @router.get("/admin/cfos", tags=["Admin Operations"])
 async def admin_list_cfos(
@@ -256,16 +286,28 @@ async def toggle_block_user(
             status_code=400,
             detail="This CFO's license has expired. They must submit a renewal request before being unblocked.",
         )
+        # Manager ka block uske CFO se aata hai: pehle CFO ko unblock karo
+    if target_user.role == RoleEnum.manager and target_user.cfo_id:
+        parent = await db.get(User, target_user.cfo_id)
+        if parent and parent.is_blocked:
+            raise HTTPException(
+                status_code=400,
+                detail="This manager is blocked because their CFO is blocked. Unblock the CFO instead.",
+            )
 
     # Toggle block status
     target_user.is_blocked = 0 if target_user.is_blocked else 1
     await db.commit()
 
     status_str = "blocked" if target_user.is_blocked else "unblocked"
-    return {
-        "message": f"User {target_user.email} has been {status_str}.",
-        "is_blocked": bool(target_user.is_blocked)
-    }
+    msg = f"User {target_user.email} has been {status_str}."
+    if target_user.role == RoleEnum.cfo:
+        n = (await db.execute(
+            select(func.count()).select_from(User).filter(User.cfo_id == target_user.id, User.role == RoleEnum.manager)
+        )).scalar_one()
+        if n:
+            msg += f" Their {n} manager(s) are {status_str} as well."
+    return {"message": msg, "is_blocked": bool(target_user.is_blocked)}
 
 
 @router.get("/admin/notifications", tags=["Admin Operations"])
@@ -313,15 +355,23 @@ async def get_regional_managers(
 ):
     _require_admin(current_user)
 
-    # Fetch all users with role 'manager'
     result = await db.execute(
         select(User).filter(User.role == RoleEnum.manager).order_by(User.id.desc())
     )
     managers = result.scalars().all()
 
-    # Format output with CFO company name details
-    return [
-        {
+    cfo_ids = {m.cfo_id for m in managers if m.cfo_id}
+    cfos = {}
+    if cfo_ids:
+        res = await db.execute(select(User).filter(User.id.in_(cfo_ids)))
+        cfos = {c.id: c for c in res.scalars().all()}
+
+    now = local_now()
+    out = []
+    for m in managers:
+        c = cfos.get(m.cfo_id)
+        cfo_blocked = bool(c and (c.is_blocked or (c.account_expiry_date and now > c.account_expiry_date)))
+        out.append({
             "id": m.id,
             "name": m.name,
             "email": m.email,
@@ -330,10 +380,12 @@ async def get_regional_managers(
             "company_name": m.company_name,
             "cfo_company_name": m.company_name,
             "cfo_id": m.cfo_id,
-            "is_blocked": bool(m.is_blocked),
-        }
-        for m in managers
-    ]
+            "cfo_name": c.name if c else None,
+            "is_verified": True,                       # managers ko approval nahi chahiye
+            "is_blocked": bool(m.is_blocked) or cfo_blocked,
+            "blocked_via_cfo": cfo_blocked,
+        })
+    return out
     
 @router.post("/admin/blacklist", tags=["Admin Operations"])
 async def blacklist_company(

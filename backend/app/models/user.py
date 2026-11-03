@@ -111,3 +111,18 @@ class RenewalRequest(base):
     reject_reason = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     reviewed_at = Column(DateTime, nullable=True)
+    
+class ActivityEvent(base):
+    __tablename__ = "activity_events"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    type = Column(String, nullable=False)          # login / logout / upload
+    file_name = Column(String, nullable=True)
+    file_size = Column(Integer, nullable=True)
+    at = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class UserPresence(base):
+    __tablename__ = "user_presence"
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    last_seen = Column(DateTime, default=datetime.utcnow)

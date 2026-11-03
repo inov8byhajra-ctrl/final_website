@@ -14,6 +14,7 @@ from app.core.scheduler import start_scheduler, scheduler
 
 from app.api.endpoints import admin, cfo, regional_manager, users, upload
 
+from app.api.endpoints import admin, cfo, regional_manager, users, upload, activity
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -64,6 +65,8 @@ app.include_router(cfo.router)
 app.include_router(regional_manager.router)
 app.include_router(users.router, prefix="/api/users", tags=["Users & RBAC"])
 app.include_router(upload.router)
+
+app.include_router(activity.router)
 
 # ---- serve the website (backend/../frontend) at "/" -------------------------------------
 # Registered LAST so every /api/... route above wins.
