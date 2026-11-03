@@ -1,0 +1,222 @@
+/* ===== 1. Pop-up look: layered depth on cards and panels ===== */
+.pn, .sc, .ac, .tiles div, .ss, .pf, .dw-c {
+  background-color: #fff;
+  border: 1px solid rgba(74, 14, 23, .07);
+  box-shadow: 0 22px 44px -24px rgba(74, 14, 23, .30), 0 8px 16px -10px rgba(74, 14, 23, .14), inset 0 1px 0 #fff;
+}
+.sc { background-image: linear-gradient(180deg, #fff, #fff6f4) }
+.pn { box-shadow: 0 28px 56px -26px rgba(74, 14, 23, .32), 0 10px 20px -12px rgba(74, 14, 23, .14), inset 0 1px 0 #fff }
+.dw { box-shadow: -30px 0 70px -20px rgba(74, 14, 23, .42), -4px 0 14px rgba(74, 14, 23, .08) }
+
+/* ===== 2. Buttons: light, soft shadow ===== */
+.btn, .tb, .pgb button, .dw-x {
+  box-shadow: 0 4px 12px -5px rgba(74, 14, 23, .16), 0 1px 3px rgba(74, 14, 23, .06);
+  transition: transform .2s, box-shadow .2s, background .2s;
+}
+.btn.solid { box-shadow: 0 6px 16px -6px rgba(74, 14, 23, .26), 0 1px 3px rgba(74, 14, 23, .08) }
+.btn:hover, .tb:hover, .pgb button:hover:not(:disabled) { box-shadow: 0 8px 18px -8px rgba(74, 14, 23, .22), 0 1px 4px rgba(74, 14, 23, .08) }
+.btn.solid:hover { box-shadow: 0 10px 22px -8px rgba(74, 14, 23, .32), 0 1px 4px rgba(74, 14, 23, .1) }
+.tb.on { box-shadow: 0 6px 16px -6px rgba(74, 14, 23, .26) }
+
+/* ===== 3. View license button: light pink + maroon ===== */
+.btn.lic-btn { background: #FFE4EA; color: #7A1C2C; border: 1px solid #F6C3CF }
+.btn.lic-btn:hover { background: #FFD6E0 }
+
+/* ===== 4. Glass select / dropdown ===== */
+.gs { position: relative; display: inline-block; vertical-align: middle; min-width: 150px }
+.dw-f .gs { flex: 1 1 100%; display: block }
+.gs-native { position: absolute !important; opacity: 0; pointer-events: none; width: 1px; height: 1px; left: 0; top: 0 }
+.gs-b {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; cursor: pointer;
+  padding: 9px 12px 9px 14px; border-radius: 12px; font: 600 .85rem var(--sans); color: #7A1C2C;
+  background: #FFF1F4; border: 1px solid #F6C3CF; box-shadow: none;
+  -webkit-backdrop-filter: none; backdrop-filter: none; transition: background .2s, border-color .2s;
+}
+.gs-b:hover { background: #FFE4EA; border-color: #EFA9B8 }
+.gs-b:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(217, 119, 127, .3) }
+.gs-b svg { width: 14px; height: 14px; flex: none; stroke: #7A1C2C; fill: none; stroke-width: 2.4; transition: transform .2s }
+.gs-b[aria-expanded=true] svg { transform: rotate(180deg) }
+.gs-l {
+  position: fixed; z-index: 3000; margin: 0; padding: 6px; list-style: none; max-height: 260px; overflow-y: auto;
+  max-width: calc(100vw - 16px); border-radius: 14px; background: #FFE4EA; border: 1px solid #F6C3CF;
+  box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+.gs-l li { padding: 9px 12px; border-radius: 9px; cursor: pointer; font: 600 .85rem var(--sans); color: #7A1C2C; display: flex; justify-content: space-between; gap: 10px }
+.gs-l li:hover, .gs-l li.hi { background: rgba(122, 28, 44, .11) }
+.gs-l li[aria-selected=true] { background: rgba(122, 28, 44, .16); font-weight: 800 }
+.gs-l li[aria-selected=true]::after { content: "✓" }
+
+/* ===== 7. No size jump when a profile opens: keep scrollbar space, blink instead ===== */
+html { scrollbar-gutter: stable }
+.ac.hl { border-color: var(--wine); box-shadow: 0 22px 44px -24px rgba(74, 14, 23, .30), 0 8px 16px -10px rgba(74, 14, 23, .14), inset 0 1px 0 #fff; animation: ifBlink .6s ease 2 }
+.blink { animation: ifBlink .6s ease 2 }
+@keyframes ifBlink { 45% { background-color: #FFD6E0 } }
+@media (prefers-reduced-motion: reduce) { .blink, .ac.hl { animation: none } }
+
+/* ===== 6. Responsive ===== */
+#app > *, .pg { min-width: 0 }
+img, svg, iframe, video { max-width: 100% }
+.tw { -webkit-overflow-scrolling: touch }
+.tabs { max-width: 100% }
+
+@media (max-width: 1100px) {
+  .mini { grid-template-columns: repeat(2, 1fr) }
+  .tool .sp { display: none }
+}
+@media (max-width: 900px) {
+  .side-nav { position: sticky; top: 0; z-index: 30; gap: 6px; scrollbar-width: none }
+  .side-nav::-webkit-scrollbar { display: none }
+  .side-nav a { flex: none }
+  .home-top { margin-bottom: 8px }
+  .tiles { grid-template-columns: 1fr 1fr }
+}
+@media (max-width: 600px) {
+  main.pg { padding: 16px 12px 40px }
+  h1.ht { font-size: 1.9rem !important }
+  .pg .lead { font-size: .92rem }
+  .mini { gap: 10px }
+  .sc { padding: 12px 12px }
+  .sc b { font-size: 1.5rem }
+  .pn { padding: 16px; border-radius: 18px }
+  .pn h3 { font-size: 1.15rem }
+  table { font-size: .84rem }
+  th, td { padding: 9px 8px }
+  .tool { gap: 8px }
+  .tool .tabs { width: 100%; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none }
+  .tool .tabs::-webkit-scrollbar { display: none }
+  .tool .gs { flex: 1 1 140px; min-width: 0 }
+  .tool input { flex: 1 1 100% !important }
+  .tool .btn { flex: 1 1 100% }
+  .ac { padding: 14px; gap: 12px }
+  .ac .in { min-width: 0; flex: 1 1 calc(100% - 70px) }
+  .ac .acts { width: 100%; display: flex }
+  .ac .acts .btn { flex: 1; text-align: center }
+  .pgb { justify-content: center }
+  .pgb small { width: 100%; text-align: center }
+  .pf { grid-template-columns: 1fr }
+  .dw { width: 100vw; border-radius: 0 }
+  .dw-h { border-radius: 0; padding: 22px 18px 14px }
+  .dw-b { padding: 14px 18px }
+  .dw-f { padding: 14px 18px calc(18px + env(safe-area-inset-bottom, 0px)) }
+  .dw-f .btn { flex: 1; text-align: center }
+  .dw-c { flex-wrap: wrap }
+  .docov { padding: 8px }
+  .docbox { height: 86vh; border-radius: 16px }
+}
+@media (max-width: 380px) {
+  .mini, .tiles { grid-template-columns: 1fr }
+}
+
+/* ===== Motion: entrance + hover (transform only, so nothing resizes) ===== */
+@keyframes ifUp { from { opacity: 0; transform: translateY(18px) } to { opacity: 1; transform: none } }
+@keyframes ifIn { from { opacity: 0; transform: translateX(-14px) } to { opacity: 1; transform: none } }
+.sc, .ac, .dw-c, .pf > * { animation: ifUp .5s cubic-bezier(.2, .8, .2, 1) backwards }
+.sc:nth-child(2), .ac:nth-child(2), .dw-c:nth-child(2) { animation-delay: .06s }
+.sc:nth-child(3), .ac:nth-child(3), .dw-c:nth-child(3) { animation-delay: .12s }
+.ac:nth-child(4), .dw-c:nth-child(4) { animation-delay: .18s }
+.ac:nth-child(5), .dw-c:nth-child(5) { animation-delay: .24s }
+.ac:nth-child(n+6), .dw-c:nth-child(n+6) { animation-delay: .3s }
+.side-nav a { animation: ifIn .45s cubic-bezier(.2, .8, .2, 1) backwards; transition: transform .2s, background .2s, color .2s }
+.side-nav a:nth-of-type(2) { animation-delay: .05s }
+.side-nav a:nth-of-type(3) { animation-delay: .1s }
+.side-nav a:nth-of-type(4) { animation-delay: .15s }
+.side-nav a:hover { transform: translateX(4px) }
+.btn, .tb, .pgb button { transition: transform .2s cubic-bezier(.2, .8, .2, 1), box-shadow .2s, background .2s }
+.btn:hover, .tb:hover { transform: translateY(-2px) }
+.btn:active, .tb:active { transform: scale(.97) }
+.ac .av, .dw-c .av { transition: transform .3s cubic-bezier(.2, .8, .2, 1) }
+.ac:hover .av { transform: scale(1.08) rotate(-4deg) }
+.ac.hl, .blink { animation: ifBlink .6s ease 2 }
+@media (prefers-reduced-motion: reduce) { .sc, .ac, .dw-c, .pf > *, .side-nav a, tbody td { animation: none } }
+
+/* ===== Pagination ===== */
+.pgb div { flex-wrap: wrap; align-items: center }
+.pgd { padding: 0 4px; color: var(--mut); font-weight: 700 }
+
+/* ===== Card animation (glow + shine only, size never changes) ===== */
+.sc, .ac, .dw-c { position: relative; overflow: hidden; transition: border-color .3s, box-shadow .3s, background-color .3s }
+.sc::after, .ac::after, .dw-c::after { content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; pointer-events: none; transform: skewX(-20deg); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .75), transparent); opacity: 0 }
+.sc:hover::after, .ac:hover::after, .dw-c:hover::after { opacity: 1; animation: ifShine .9s ease-out }
+@keyframes ifShine { from { left: -60% } to { left: 130% } }
+.sc:hover, .ac:hover, .dw-c:hover { border-color: rgba(122, 28, 44, .35); background-color: #fffafa }
+.sc b { display: block; width: fit-content; transform-origin: left center; animation: ifPop .6s cubic-bezier(.2, .9, .3, 1.4) .25s backwards }
+@keyframes ifPop { from { opacity: 0; transform: scale(.4) } to { opacity: 1; transform: none } }
+.ac .tag { transition: transform .2s, background .2s }
+.ac:hover .tag { transform: translateY(-2px) }
+.ac:hover .tag:nth-child(2) { transition-delay: .04s }
+.ac:hover .tag:nth-child(3) { transition-delay: .08s }
+@media (prefers-reduced-motion: reduce) { .sc::after, .ac::after, .dw-c::after, .sc b { animation: none !important } }
+
+.sc span { display: block; margin-top: 2px; line-height: 1.4 }
+
+/* ===== Table rows: slide-in + hover accent (animates cells, so it works in every browser) ===== */
+@keyframes ifRow { from { opacity: 0; transform: translateX(-16px) } to { opacity: 1; transform: none } }
+tbody tr:not(.nr) td { animation: ifRow .45s cubic-bezier(.2, .8, .2, 1) backwards }
+tbody tr:nth-child(2) td { animation-delay: .05s }
+tbody tr:nth-child(3) td { animation-delay: .10s }
+tbody tr:nth-child(4) td { animation-delay: .15s }
+tbody tr:nth-child(5) td { animation-delay: .20s }
+tbody tr:nth-child(6) td { animation-delay: .25s }
+tbody tr:nth-child(7) td { animation-delay: .30s }
+tbody tr:nth-child(n+8) td { animation-delay: .35s }
+tbody tr td { transition: background-color .2s, box-shadow .2s }
+tbody tr:hover td { background-color: rgba(122, 28, 44, .05) }
+tbody tr:hover td:first-child { box-shadow: inset 4px 0 0 #7A1C2C }
+@media (prefers-reduced-motion: reduce) { tbody tr td { animation: none } }
+
+/* ===== Dashboard: sections + approval shortcut cards ===== */
+.pn { animation: ifUp .55s cubic-bezier(.2, .8, .2, 1) backwards }
+.pn + .pn { animation-delay: .08s }
+.pn + .pn + .pn { animation-delay: .16s }
+.pn + .pn + .pn + .pn { animation-delay: .24s }
+.pn h3 { position: relative; display: inline-block }
+.pn h3::after { content: ""; position: absolute; left: 0; bottom: -4px; height: 2px; width: 100%; background: linear-gradient(90deg, #7A1C2C, transparent); transform-origin: left; animation: ifLine .7s cubic-bezier(.2, .8, .2, 1) .25s backwards }
+@keyframes ifLine { from { transform: scaleX(0) } to { transform: scaleX(1) } }
+.approval-shortcuts article { position: relative; overflow: hidden; animation: ifUp .5s cubic-bezier(.2, .8, .2, 1) backwards; transition: border-color .3s, background-color .3s, box-shadow .3s }
+.approval-shortcuts article:nth-child(2) { animation-delay: .1s }
+.approval-shortcuts article:nth-child(3) { animation-delay: .2s }
+.approval-shortcuts article::after { content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 40%; pointer-events: none; transform: skewX(-20deg); background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .8), transparent); opacity: 0 }
+.approval-shortcuts article:hover { border-color: rgba(122, 28, 44, .35) !important; background-color: #fffafa !important; box-shadow: 0 14px 28px -16px rgba(74, 14, 23, .3) }
+.approval-shortcuts article:hover::after { opacity: 1; animation: ifShine .9s ease-out }
+.approval-shortcuts article .btn { transition: transform .2s cubic-bezier(.2, .8, .2, 1), box-shadow .2s }
+.approval-shortcuts article:hover .btn { transform: translateX(3px) }
+@media (prefers-reduced-motion: reduce) { .pn, .pn h3::after, .approval-shortcuts article { animation: none } }
+
+.sc.go { cursor: pointer }
+.sc.go:focus-visible { outline: 2px solid #7A1C2C; outline-offset: 2px }
+
+/* ===== Logo ===== */
+.side-nav .brand { display: flex; align-items: center; gap: 0 }
+.brand-logo { width: 44px; height: 44px; margin-right: 10px; object-fit: contain; flex: none; filter: drop-shadow(0 4px 6px rgba(74, 14, 23, .22)); animation: ifLogo .7s cubic-bezier(.2, .9, .3, 1.3) backwards; transition: transform .35s cubic-bezier(.2, .8, .2, 1) }
+.brand:hover .brand-logo { transform: rotate(-8deg) scale(1.08) }
+@keyframes ifLogo { from { opacity: 0; transform: scale(.5) rotate(-20deg) } to { opacity: 1; transform: none } }
+@media (max-width: 900px) { .side-nav .brand { display: none } }
+@media (prefers-reduced-motion: reduce) { .brand-logo { animation: none } }
+
+/* ===== Mobile top bar + slide-in sidebar (<= 900px) ===== */
+#mbar, #mov { display: none }
+@media (max-width: 900px) {
+  #mbar { display: flex; position: sticky; top: 0; z-index: 40; align-items: center; justify-content: space-between; padding: calc(10px + env(safe-area-inset-top, 0px)) 16px 10px; background: rgba(255, 255, 255, .94); border-bottom: 1px solid var(--line) }
+  #mbar .brand { display: flex; align-items: center; font-size: 1.35rem }
+  #mbar .brand-logo { width: 38px; height: 38px; margin-right: 8px }
+  #mmenu { width: 44px; height: 44px; border-radius: 14px; border: 1px solid #F6C3CF; background: #FFE4EA; cursor: pointer; display: grid; place-content: center; gap: 5px; box-shadow: 0 4px 12px -5px rgba(74, 14, 23, .16) }
+  #mmenu span { display: block; width: 20px; height: 2.5px; border-radius: 2px; background: #7A1C2C; transition: transform .3s cubic-bezier(.2, .8, .2, 1), opacity .2s }
+  body.nav-open #mmenu span:nth-child(1) { transform: translateY(7.5px) rotate(45deg) }
+  body.nav-open #mmenu span:nth-child(2) { opacity: 0 }
+  body.nav-open #mmenu span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg) }
+  #mov { display: block; position: fixed; inset: 0; z-index: 2400; background: rgba(74, 14, 23, .4); opacity: 0; pointer-events: none; transition: opacity .3s }
+  body.nav-open #mov { opacity: 1; pointer-events: auto }
+  body.nav-open { overflow: hidden }
+  .side-nav { position: fixed; top: 0; left: 0; bottom: 0; height: auto; width: min(300px, 84vw); z-index: 2500; flex-direction: column; overflow-x: hidden; overflow-y: auto; gap: 4px; padding: calc(22px + env(safe-area-inset-top, 0px)) 14px calc(22px + env(safe-area-inset-bottom, 0px)); background: var(--card); transform: translateX(-105%); visibility: hidden; transition: transform .32s cubic-bezier(.2, .8, .2, 1), visibility 0s .32s }
+  body.nav-open .side-nav { transform: none; visibility: visible; transition-delay: 0s; box-shadow: 24px 0 60px -20px rgba(74, 14, 23, .45) }
+  .side-nav .brand { display: flex; padding: 0 12px 18px }
+  .side-nav .me { display: block }
+  .side-nav a { animation: none }
+  body.nav-open .side-nav a { animation: ifDrawer .4s cubic-bezier(.2, .8, .2, 1) backwards }
+  body.nav-open .side-nav a:nth-of-type(2) { animation-delay: .06s }
+  body.nav-open .side-nav a:nth-of-type(3) { animation-delay: .12s }
+  body.nav-open .side-nav a:nth-of-type(4) { animation-delay: .18s }
+  body.nav-open .side-nav a:nth-of-type(5) { animation-delay: .24s }
+}
+@keyframes ifDrawer { from { opacity: 0; transform: translateX(-22px) } to { opacity: 1; transform: none } }
+@media (prefers-reduced-motion: reduce) { body.nav-open .side-nav a { animation: none } .side-nav { transition: none } }

@@ -4,7 +4,7 @@ const $ = s => document.querySelector(s);
 const st = { get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d } catch (e) { return d } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)) } catch (e) { } } };
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const I = { Home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>', Dashboard: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', Data: '<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/>', Unify: '<path d="M4 6h6v4H4zM4 14h6v4H4zM14 10h6v4h-6zM10 8h2v8h-2"/>', Ask: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', PL: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9h9"/>', Forecast: '<path d="M3 17l6-6 4 4 8-9M15 6h6v6"/>', Advisory: '<path d="M12 3a6 6 0 0 0-3 11.2V17h6v-2.8A6 6 0 0 0 12 3zM9 21h6"/>', Doctor: '<path d="M12 21s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9zM8 12h2l1-2 2 4 1-2h2"/>', Security: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4"/>', Admin: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4"/>' };
+const I = { Home: '<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>', Dashboard: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>', Data: '<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v3h16v-3"/>', Unify: '<path d="M4 6h6v4H4zM4 14h6v4H4zM14 10h6v4h-6zM10 8h2v8h-2"/>', Ask: '<path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/>', PL: '<circle cx="12" cy="12" r="9"/><path d="M12 3v9h9"/>', Forecast: '<path d="M3 17l6-6 4 4 8-9M15 6h6v6"/>', Advisory: '<path d="M12 3a6 6 0 0 0-3 11.2V17h6v-2.8A6 6 0 0 0 12 3zM9 21h6"/>', Doctor: '<path d="M12 21s-7-4.4-9-9a5 5 0 0 1 9-3 5 5 0 0 1 9 3c-2 4.6-9 9-9 9zM8 12h2l1-2 2 4 1-2h2"/>', Security: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4"/>', Admin: '<path d="M4 4h7v7H4zM13 4h7v4h-7zM13 11h7v9h-7zM4 14h7v6H4z"/>', Approvals: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6zM9 12l2 2 4-4"/>', Activity: '<path d="M3 12h4l3-8 4 16 3-8h4"/>', MgrApprovals: '<path d="M16 11a4 4 0 1 0-8 0 4 4 0 0 0 8 0zM4 21c0-4 3.6-7 8-7s8 3 8 7M17 3l2 2 3-3"/>' };
 const ic = k => `<svg viewBox="0 0 24 24">${I[k]}</svg>`;
 const M = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep'], REV = [74, 82, 96, 91, 112, 124, 131, 128, 142], COG = [41, 44, 52, 49, 58, 63, 66, 65, 71], OPX = [18, 19, 21, 20, 24, 26, 27, 27, 29];
 function line(d, proj) {
@@ -19,17 +19,29 @@ const kp = a => `<div class="kp">${a.map(k => `<div class="k"><small>${k[0]}</sm
 const pl = () => M.map((m, i) => [m, REV[i], COG[i], REV[i] - COG[i], OPX[i], REV[i] - COG[i] - OPX[i]]);
 function draw() { document.querySelectorAll('.lp').forEach(p => { const l = p.getTotalLength ? p.getTotalLength() : 0; if (l && !p.getAttribute('stroke-dasharray')) { gsap.fromTo(p, { strokeDasharray: l, strokeDashoffset: l }, { strokeDashoffset: 0, duration: 1.4, ease: 'power2.out', onComplete: () => p.style.strokeDasharray = 'none' }) } }) }
 
-const V = [['Home', 'home.html'], ['Dashboard', 'dashboard.html'], ['Data', 'data.html'], ['Doctor', 'datadoctor.html'], ['PL', 'pnl.html'], ['Ask', 'ask.html'], ['Forecast', 'forecast.html'], ['Unify', 'unify.html'], ['Advisory', 'advisory.html'], ['Security', 'security.html']], L = { PL: 'Profit & Loss', Doctor: 'Data Doctor', Admin: 'CFO approvals' };
-function signOut() { localStorage.removeItem('if_session'); location.href = 'index.html' }
+const V = [['Home', 'home.html'], ['Dashboard', 'dashboard.html'], ['Data', 'data.html'], ['Doctor', 'datadoctor.html'], ['PL', 'pnl.html'], ['Ask', 'ask.html'], ['Forecast', 'forecast.html'], ['Unify', 'unify.html'], ['Advisory', 'advisory.html'], ['Security', 'security.html']], L = { PL: 'Profit & Loss', Doctor: 'Data Doctor', Admin: 'Dashboard', Approvals: 'CFO approvals', MgrApprovals: 'Manager approvals', Activity: 'Activity tracking' };
+function signOut() { location.href = 'index.html' }
 function page(key, render, init) {
-  const u = st.get('if_session', null);
-  if (!u || !u.token || (window.IF && IF.tokenExpired(u.token))) { localStorage.removeItem('if_session'); location.replace('login.html?next=' + location.pathname.split('/').pop()); return }
-  if (u.role === 'admin' && key !== 'Admin') { location.replace('admin.html'); return }
-  if (u.role !== 'admin' && key === 'Admin') { location.replace('home.html'); return }
-  const NAV = u.role === 'admin' ? [['Admin', 'admin.html']] : V;
-  $('#sn').innerHTML = '<a class="brand" href="index.html">Insight<b>Flow</b></a>' + NAV.map(v => `<a href="${v[1]}" class="${v[0] === key ? 'on' : ''}" ${v[0] === key ? 'aria-current="page"' : ''}>${ic(v[0])}${L[v[0]] || v[0]}</a>`).join('') + `<div class="me"><b>${esc(u.n)}</b>${esc(u.e)}<br><a onclick="signOut()" tabindex="0" role="button">Sign out</a></div>`;
+  /* LOGIN REMOVED: always open as admin, no sign-in needed */
+  let u = st.get('if_session', null);
+  if (!u || u.role !== 'admin') { u = { n: 'Admin', e: '', role: 'admin', token: '', k: 1 }; st.set('if_session', u) }
+  if (key !== 'Admin' && key !== 'Approvals' && key !== 'MgrApprovals' && key !== 'Activity') { location.replace('admin.html'); return }
+  const NAV = u.role === 'admin' ? [['Admin', 'admin.html'], ['Approvals', 'approvals.html'], ['MgrApprovals', 'manager-approvals.html'], ['Activity', 'activity.html']] : V;
+  $('#sn').innerHTML = '<a class="brand" href="index.html"><img class="brand-logo" src="logo.png" alt="">Insight<b>Flow</b></a>' + NAV.map(v => `<a href="${v[1]}" class="${v[0] === key ? 'on' : ''}" ${v[0] === key ? 'aria-current="page"' : ''}>${ic(v[0])}${L[v[0]] || v[0]}</a>`).join('') + `<div class="me"><b>${esc(u.n)}</b><a onclick="signOut()" tabindex="0" role="button">Sign out</a></div>`;
+  if (!$('#mbar')) {
+    const bar = document.createElement('header'); bar.id = 'mbar';
+    bar.innerHTML = '<a class="brand" href="admin.html"><img class="brand-logo" src="logo.png" alt="">Insight<b>Flow</b></a><button type="button" id="mmenu" aria-label="Open menu" aria-expanded="false" aria-controls="sn"><span></span><span></span><span></span></button>';
+    const ov = document.createElement('div'); ov.id = 'mov';
+    document.body.prepend(ov); document.body.prepend(bar);
+    const setNav = o => { document.body.classList.toggle('nav-open', o); $('#mmenu').setAttribute('aria-expanded', o); $('#mmenu').setAttribute('aria-label', o ? 'Close menu' : 'Open menu') };
+    $('#mmenu').addEventListener('click', () => setNav(!document.body.classList.contains('nav-open')));
+    ov.addEventListener('click', () => setNav(false));
+    $('#sn').addEventListener('click', e => { if (e.target.closest('a')) setNav(false) });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') setNav(false) });
+    window.addEventListener('resize', () => { if (innerWidth > 900) setNav(false) });
+  }
   $('#pg').dataset.k = key; $('#pg').innerHTML = render(u);
-  gsap.from('#pg > *,#pg .k,#pg .pn', { opacity: 0, y: 18, duration: .5, stagger: .06, ease: 'back.out(1.4)', clearProps: 'all' }); init && init(u); ballFx(); fx3d(); window.IF && IF.verify()
+  gsap.from('#pg > *,#pg .k,#pg .pn', { opacity: 0, y: 18, duration: .5, stagger: .06, ease: 'back.out(1.4)', clearProps: 'opacity,transform,visibility' }); init && init(u); ballFx(); fx3d(); window.IF && IF.verify()
 }
 
 const BALL = (c = '') => `<div class="ball3d" aria-hidden="true"><i class="gs"></i><div class="fl3"><div class="bt"><div class="rg rb"><i></i></div><div class="sph">${c}</div><div class="rg rf"><i></i></div></div></div></div>`;

@@ -1,0 +1,45 @@
+/* spacing inside the 4 stat cards: gap between label, number and note */
+.sc small { margin-bottom: 12px }
+.sc b { margin-bottom: 8px }
+.me a { display: inline-block; margin-top: 8px }
+
+/* profile details grid (used in side panels) */
+.pf { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; margin: 0 0 18px; padding: 14px 16px; border: 1px solid #eee2e2; border-radius: 16px; background: #fffdfd }
+.pf dt { font: 700 .62rem var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--mut) }
+.pf dd { margin: 2px 0 0; font-weight: 600; font-size: .9rem; word-break: break-word }
+
+/* side panel (same look as the dashboard panel) */
+.dwo { position: fixed; inset: 0; z-index: 1000; background: rgba(74, 14, 23, .35); backdrop-filter: blur(2px); opacity: 0; pointer-events: none; transition: opacity .25s }
+.dwo.open { opacity: 1; pointer-events: auto }
+.dw { position: fixed; top: 0; right: 0; height: 100%; width: min(460px, 100vw); z-index: 1001; background: #fff; border-radius: 24px 0 0 24px; box-shadow: -24px 0 60px -20px rgba(74, 14, 23, .35); transform: translateX(105%); transition: transform .3s cubic-bezier(.2, .8, .2, 1); display: flex; flex-direction: column }
+.dw.open { transform: none }
+.dw-h { padding: 26px 26px 18px; border-bottom: 1px solid #f0e6e6; position: relative; background: linear-gradient(180deg, #fbf3f1, #fff); border-radius: 24px 0 0 0 }
+.dw-x { position: absolute; top: 16px; right: 16px; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #ead9d9; background: #fff; color: var(--wine); font-size: 1.1rem; cursor: pointer; line-height: 1 }
+.dw-h h2 { font-family: "Newsreader", serif; font-size: 1.6rem; margin: 4px 0 2px; color: var(--wine); font-weight: 600; padding-right: 36px }
+.dw-b { padding: 18px 26px 18px; overflow-y: auto; flex: 1 }
+.dw-f { padding: 16px 26px 22px; border-top: 1px solid #f0e6e6; display: flex; gap: 10px; flex-wrap: wrap; align-items: center }
+.dw-f select { padding: 8px 10px; border-radius: 10px; border: 1px solid #e5e5e5; font-size: .85rem; flex: 1 1 100% }
+
+/* approvals list */
+.tabs { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap }
+.tb { border: 1px solid #ead9d9; background: #fff; color: var(--wine); font: 700 .88rem var(--sans); padding: 9px 18px; border-radius: 999px; cursor: pointer }
+.tb i { font-style: normal; margin-left: 6px; background: #f6ebe9; border-radius: 999px; padding: 1px 9px; font-size: .75rem }
+.tb.on { background: var(--wine); color: #fff; border-color: var(--wine) }
+.tb.on i { background: rgba(255, 255, 255, .22) }
+.ac { display: flex; align-items: center; gap: 16px; border: 1px solid #eee2e2; border-radius: 18px; padding: 16px 18px; margin-bottom: 12px; background: #fffdfd; flex-wrap: wrap }
+.ac .av { width: 46px; height: 46px; flex: none; border-radius: 50%; background: linear-gradient(135deg, var(--wine), #a8324a); color: #fff; font-weight: 700; display: grid; place-items: center; text-transform: uppercase }
+.ac .in { flex: 1; min-width: 220px }
+.ac .in b { display: block; font-size: 1.02rem }
+.ac .in small { color: var(--mut); display: block }
+.ac .meta { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap }
+.ac .meta span { font-size: .72rem; font-weight: 700; padding: 3px 11px; border-radius: 999px; background: #f6ebe9; color: var(--wine) }
+.ac .acts { display: flex; gap: 8px }
+.pgb { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 18px }
+.pgb small { color: var(--mut); font-weight: 600 }
+.pgb div { display: flex; gap: 6px }
+.pgb button { min-width: 38px; height: 38px; padding: 0 12px; border-radius: 10px; border: 1px solid #ead9d9; background: #fff; color: var(--wine); font: 700 .85rem var(--sans); cursor: pointer }
+.pgb button.on { background: var(--wine); color: #fff; border-color: var(--wine) }
+.pgb button:disabled { opacity: .4; cursor: default }
+
+/* card opened from the dashboard "View" button */
+.ac.hl { border-color: var(--wine); box-shadow: 0 0 0 3px rgba(122, 28, 44, .12) }

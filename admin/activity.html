@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Activity tracking — InsightFlow</title>
+    <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="design.css">
+    <link rel="stylesheet" href="panel.css">
+    <link rel="icon" type="image/png" href="logo.png">
+    <link rel="stylesheet" href="pop.css">
+    <link rel="stylesheet" href="loader.css">
+    <script src="loader.js"></script>
+    <style>
+        .tb { white-space: nowrap }
+        .tool { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 18px 0 14px }
+        .tool select, .tool input { padding: 9px 12px; border-radius: 10px; border: 1px solid #ead9d9; background: #fff; font: 600 .85rem var(--sans); color: var(--txt) }
+        .tool input { flex: 1 1 200px; min-width: 160px }
+        .tool .sp { flex: 1 }
+        tr[data-u] { cursor: pointer; transition: background .15s }
+        tr[data-u]:hover { background: rgba(122, 28, 44, .045) }
+        .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #c9b9bb; margin-right: 7px }
+        .dot.on { background: #2e9e5b; box-shadow: 0 0 0 4px rgba(46, 158, 91, .18) }
+        .ap { display: inline-block; font-size: .72rem; font-weight: 700; padding: 3px 11px; border-radius: 999px; white-space: nowrap }
+        .ap.in { background: #e6f3ea; color: #1f6b3a }
+        .ap.out { background: #f1e6e8; color: var(--wine) }
+        .ap.up { background: #fbeadf; color: #9a4a12 }
+        .ap.cfo { background: #f6ebe9; color: var(--wine) }
+        .ap.mgr { background: #e9eef7; color: #264a85 }
+        .sub { color: var(--mut); font-size: .8rem; display: block }
+        .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px }
+        .tiles div { border: 1px solid #eee2e2; border-radius: 14px; padding: 12px 14px; background: #fffdfd }
+        .tiles small { font: 700 .62rem var(--sans); letter-spacing: .12em; text-transform: uppercase; color: var(--mut); display: block }
+        .tiles b { font-size: 1.15rem }
+        .ss { border: 1px solid #eee2e2; border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; background: #fffdfd }
+        .ss-h { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-size: .88rem }
+        .ss-h .du { font-weight: 700; color: var(--wine) }
+        .ss-r { display: flex; gap: 10px; align-items: baseline; font-size: .82rem; padding: 3px 0; flex-wrap: wrap }
+        .ss-r .ap { min-width: 62px; text-align: center }
+        .ss-r em { color: var(--mut); font-style: normal }
+        .ss-note { color: #a11a1a; font-size: .76rem; font-weight: 600; margin-top: 2px }
+        .dw-b h4 { margin: 18px 0 10px; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--mut) }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+</head>
+
+<body>
+    <div id="app">
+        <nav class="side-nav" id="sn" aria-label="Main"></nav>
+        <main class="pg" id="pg"></main>
+    </div>
+    <script src="mock.js"></script>
+    <script src="api.js"></script>
+    <script src="glass-select.js"></script>
+    <script src="app.js"></script>
+    <script src="activity.js"></script>
+</body>
+
+</html>
