@@ -163,7 +163,7 @@ async def cfo_signup(
         admins = admin_result.scalars().all()
         
         notif_msg = f"New CFO registered: {name.strip()} ({company_name.strip()}). Please review documents."
-        dashboard_url = f"{settings.FRONTEND_URL.rstrip('/')}/admin.html"
+        dashboard_url = f"{settings.FRONTEND_URL.rstrip('/')}/admin/admin.html"
 
         # 2. Add in-app notifications for each admin found
         for admin in admins:

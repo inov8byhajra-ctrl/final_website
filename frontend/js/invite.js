@@ -1,18 +1,16 @@
-/* =====================================================================
-   invite.js – "Invite regional manager" page (invite.html)
-   Needs: common.js loaded first.
-   ===================================================================== */
-
-if (!st.get('if_session', null)) location.replace('login.html?next=invite.html');
-
-$('#inf').onsubmit = e => {
-  e.preventDefault();
-  const v = id => $(id).value.trim();
-  const invites = st.get('if_invites', []);
-
-  if (invites.some(x => x.e === v('#me').toLowerCase())) return $('#ie').textContent = 'That email has already been invited.';
-
-  invites.push({ n: v('#mn'), e: v('#me').toLowerCase(), r: v('#mr'), t: Date.now() });
-  st.set('if_invites', invites);
-  location.href = 'home.html?invited=1';
+/* invite.js – CFO invites a regional manager (real backend). invite.html must load: common.js, api.js, invite.js */
+(function () {
+  const s = IF.getSession();
+  if (!s || !s.token || IF.tokenExpired(s.token)) return IF.logout(true);
+  if (s.role !== 'cfo') location.replace('home.html');
+})();
+$('#inf').onsubmit = async e => {
+  e.preventDefault(); const err = $('#ie'); err.textContent = '';
+  const v = id => $(id).value.trim(), b = e.target.querySelector('button'); b.disabled = true;
+  try {
+    const r = await IF.api('/cfo/invite-manager', { method: 'POST', auth: true, json: { name: v('#mn'), email: v('#me'), region: v('#mr') } });
+    IF.toast(r.message + (r.dev_otp ? ' (dev OTP: ' + r.dev_otp + ')' : ''));
+    e.target.reset();
+    setTimeout(() => location.href = 'home.html?invited=1', r.dev_otp ? 6000 : 1800);
+  } catch (x) { err.textContent = x.message } finally { b.disabled = false }
 };

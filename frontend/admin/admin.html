@@ -100,15 +100,7 @@
                         const expiringResponse = await IF.api('/admin/expiring-soon?days=28', { auth: true }).catch(() => ({ expiring: [] }));
                         expiring = Array.isArray(expiringResponse) ? expiringResponse : (Array.isArray(expiringResponse && expiringResponse.expiring) ? expiringResponse.expiring : []);
 
-                        // Keep the dashboard useful in demo mode even when an API endpoint returns an empty list.
-                        if (!renewals.length) renewals = [
-                            { id: 2, name: 'Ali Raza', email: 'ali.raza@zetatextiles.com', company_name: 'Zeta Textiles', old_expiry: '2026-11-02', license_number: 'LIC-9002', license_issue_date: '2026-10-20', license_expiry_date: '2027-11-25', has_license_file: true },
-                            { id: 3, name: 'Hina Malik', email: 'hina.malik@brightpharma.com', company_name: 'Bright Pharma', old_expiry: '2026-11-10', license_number: 'LIC-9003', license_issue_date: '2026-10-17', license_expiry_date: '2027-12-25', has_license_file: false }
-                        ];
-                        if (!expiring.length) expiring = [
-                            { id: 2, name: 'Ali Raza', email: 'ali.raza@zetatextiles.com', company_name: 'Zeta Textiles', expiry_date: '2026-11-05', days_left: 16, expired: false, is_blocked: false },
-                            { id: 6, name: 'Sara Khan', email: 'sara.khan@novafoods.pk', company_name: 'Nova Foods', expiry_date: '2026-11-12', days_left: 23, expired: false, is_blocked: false }
-                        ];
+
                     } catch (e) {
                         ($('#rn') || {}).innerHTML = `<p class="err">${esc(e.message)}</p>`;
                         return;
