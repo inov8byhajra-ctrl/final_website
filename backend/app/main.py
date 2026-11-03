@@ -12,7 +12,7 @@ from app.core.database import AsyncSessionLocal, base, engine
 from app.core.limiter import limiter
 from app.core.scheduler import start_scheduler, scheduler
 
-from app.api.endpoints import admin, cfo, regional_manager, users, upload
+
 
 from app.api.endpoints import admin, cfo, regional_manager, users, upload, activity
 

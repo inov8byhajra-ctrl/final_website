@@ -20,14 +20,14 @@ const pl = () => M.map((m, i) => [m, REV[i], COG[i], REV[i] - COG[i], OPX[i], RE
 function draw() { document.querySelectorAll('.lp').forEach(p => { const l = p.getTotalLength ? p.getTotalLength() : 0; if (l && !p.getAttribute('stroke-dasharray')) { gsap.fromTo(p, { strokeDasharray: l, strokeDashoffset: l }, { strokeDashoffset: 0, duration: 1.4, ease: 'power2.out', onComplete: () => p.style.strokeDasharray = 'none' }) } }) }
 
 const V = [['Home', 'home.html'], ['Dashboard', 'dashboard.html'], ['Data', 'data.html'], ['Doctor', 'datadoctor.html'], ['PL', 'pnl.html'], ['Ask', 'ask.html'], ['Forecast', 'forecast.html'], ['Unify', 'unify.html'], ['Advisory', 'advisory.html'], ['Security', 'security.html']], L = { PL: 'Profit & Loss', Doctor: 'Data Doctor', Admin: 'Dashboard', Approvals: 'CFO approvals', MgrApprovals: 'Manager approvals', Activity: 'Activity tracking' };
-function signOut() { location.href = 'index.html' }
+function signOut() { IF.logout() }
 function page(key, render, init) {
-  /* LOGIN REMOVED: always open as admin, no sign-in needed */
+
   let u = st.get('if_session', null);
-  if (!u || u.role !== 'admin') { u = { n: 'Admin', e: '', role: 'admin', token: '', k: 1 }; st.set('if_session', u) }
+  if (!u || u.role !== 'admin' || !u.token || IF.tokenExpired(u.token)) { IF.logout(true); return }
   if (key !== 'Admin' && key !== 'Approvals' && key !== 'MgrApprovals' && key !== 'Activity') { location.replace('admin.html'); return }
-  const NAV = u.role === 'admin' ? [['Admin', 'admin.html'], ['Approvals', 'approvals.html'], ['MgrApprovals', 'manager-approvals.html'], ['Activity', 'activity.html']] : V;
-  $('#sn').innerHTML = '<a class="brand" href="index.html"><img class="brand-logo" src="logo.png" alt="">Insight<b>Flow</b></a>' + NAV.map(v => `<a href="${v[1]}" class="${v[0] === key ? 'on' : ''}" ${v[0] === key ? 'aria-current="page"' : ''}>${ic(v[0])}${L[v[0]] || v[0]}</a>`).join('') + `<div class="me"><b>${esc(u.n)}</b><a onclick="signOut()" tabindex="0" role="button">Sign out</a></div>`;
+  const NAV = u.role === 'admin' ? [['Admin', 'admin.html'], ['Approvals', 'approvals.html'], ['Activity', 'activity.html']] : V;
+  $('#sn').innerHTML = '<a class="brand" href="/index.html"><img class="brand-logo" src="logo.png" alt="">Insight<b>Flow</b></a>' + NAV.map(v => `<a href="${v[1]}" class="${v[0] === key ? 'on' : ''}" ${v[0] === key ? 'aria-current="page"' : ''}>${ic(v[0])}${L[v[0]] || v[0]}</a>`).join('') + `<div class="me"><b>${esc(u.n)}</b><a onclick="signOut()" tabindex="0" role="button">Sign out</a></div>`;
   if (!$('#mbar')) {
     const bar = document.createElement('header'); bar.id = 'mbar';
     bar.innerHTML = '<a class="brand" href="admin.html"><img class="brand-logo" src="logo.png" alt="">Insight<b>Flow</b></a><button type="button" id="mmenu" aria-label="Open menu" aria-expanded="false" aria-controls="sn"><span></span><span></span><span></span></button>';
