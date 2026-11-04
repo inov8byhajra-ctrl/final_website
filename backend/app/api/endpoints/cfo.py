@@ -46,6 +46,17 @@ def _norm(email: str) -> str:
     return (email or "").strip().lower()
 
 
+def _exists_message(u: User) -> str:
+    """Tell the user the REAL status of an already-registered account."""
+    if u.role == RoleEnum.cfo and not u.is_approved:
+        return "This email is already registered and is waiting for admin approval. We will email you once it is approved, so you do not need to sign up again."
+    if u.is_blocked:
+        return "This account has been blocked. Please contact support."
+    if u.role == RoleEnum.cfo and u.account_expiry_date and local_now() > u.account_expiry_date:
+        return "This email is already registered, but its license has expired. Please renew your license to regain access."
+    return "An account with this email already exists. Please sign in, or use 'Forgot password'."
+
+
 async def _store_license_file(license_file: UploadFile) -> str:
     """Validate + save an uploaded license; returns the stored file name."""
     ext = Path(license_file.filename or "").suffix.lower()
@@ -78,6 +89,7 @@ async def cfo_signup(
     db: AsyncSession = Depends(get_db),
 ):
     email = _norm(email)
+    
     try:
         _email_adapter.validate_python(email)
     except ValidationError:
@@ -88,19 +100,25 @@ async def cfo_signup(
         company_name = clean_company(company_name)
         license_number = clean_license(license_number)
         phone = clean_phone(phone)
+        
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
-
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required.")
     problem = password_problem(password)
     if problem:
         raise HTTPException(status_code=400, detail=problem)
 
     dup = await db.execute(select(User).filter(func.lower(User.email) == email))
-    if dup.scalars().first():
-        raise HTTPException(status_code=400, detail="An account with this email already exists. Please sign in, or use 'Forgot password'.")
+    existing = dup.scalars().first()
+    if existing:
+        raise HTTPException(status_code=400, detail=_exists_message(existing))
 
     dup_lic = await db.execute(select(User).filter(func.upper(User.license_number) == license_number))
-    if dup_lic.scalars().first():
+    lic_owner = dup_lic.scalars().first()
+    if lic_owner:
+        if lic_owner.role == RoleEnum.cfo and not lic_owner.is_approved:
+            raise HTTPException(status_code=400, detail="This license number is already registered and is waiting for admin approval.")
         raise HTTPException(status_code=400, detail="This license number is already registered.")
 
     current_date = local_now().date()
@@ -213,7 +231,6 @@ async def cfo_signup(
         "cfo_id": new_cfo_id,
     }
 
-
 # NEW: public renewal request (a blocked CFO cannot log in, so email + password are sent in the form)
 @router.post("/cfo/renew", tags=["CFO operation"])
 @limiter.limit("5/hour")
@@ -320,6 +337,7 @@ async def invite_manager(
         raise HTTPException(status_code=400, detail="Invalid CFO data. Domain missing.")
 
     mgr_email = _norm(invite.email)
+    
     rm_domain = mgr_email.split("@")[1]
     if rm_domain != current_user.company_domain.lower():
         raise HTTPException(
