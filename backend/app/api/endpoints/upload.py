@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
 from app.core.valid_f1 import validate_contract
@@ -12,11 +11,17 @@ from app.models.uploaded_file import UploadedFile
 from app.models.user import RoleEnum, User
 from app.schemas.upload import UploadResponse
 from app.services import ingestion
-
-router = APIRouter(prefix="/api/upload", tags=["Data Ingestion"])
-
+import logging
+from fastapi import Request
+from app.core.limiter import limiter
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "data"
 MAX_SIZE = 20 * 1024 * 1024  # 20 MB
+XLSX_SIG = b"PK\x03\x04"
+XLS_SIG = b"\xd0\xcf\x11\xe0"
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/upload", tags=["Data Ingestion"])
 
 
 def _company_id(user: User) -> int:
@@ -24,7 +29,9 @@ def _company_id(user: User) -> int:
 
 
 @router.post("", response_model=UploadResponse)
+@limiter.limit("20/minute")
 async def upload_file(
+    request: Request,
     file: UploadFile = File(...),
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -38,11 +45,18 @@ async def upload_file(
     if ext not in ingestion.ALLOWED_EXT:
         raise HTTPException(400, "Only .csv, .xls and .xlsx files are allowed.")
 
-    content = await file.read()
+    content = await file.read(MAX_SIZE + 1)   # sirf 20 MB + 1 byte padho
     if not content:
         raise HTTPException(400, "File is empty.")
     if len(content) > MAX_SIZE:
         raise HTTPException(413, "File too large (max 20 MB).")
+    
+    if ext == ".xlsx" and not content.startswith(XLSX_SIG):
+        raise HTTPException(400, "This file is not a valid XLSX file.")
+    if ext == ".xls" and not content.startswith(XLS_SIG):
+        raise HTTPException(400, "This file is not a valid XLS file.")
+    if ext == ".csv" and b"\x00" in content[:4096]:   # CSV text hoti hai, null bytes nahi
+        raise HTTPException(400, "This file is not a valid CSV file.")
 
     cfo_id = _company_id(user)
     fhash = ingestion.file_hash(content)
@@ -60,7 +74,7 @@ async def upload_file(
     folder = UPLOAD_DIR / str(cfo_id)
     folder.mkdir(parents=True, exist_ok=True)
     safe_name = Path(file.filename).name.replace(" ", "_")
-    path = folder / f"{fhash[:12]}_{safe_name}"
+    path = folder / f"{user.id}_{fhash[:12]}_{safe_name}"
     path.write_bytes(content)
 
     record = UploadedFile(
@@ -92,13 +106,14 @@ async def upload_file(
 
     except HTTPException:
         raise
-    except Exception as e:
-        await db.rollback()
-        rec = await db.get(UploadedFile, upload_id)
-        rec.status = "rejected"
-        rec.error_message = f"Processing failed: {e}"[:1000]
-        await db.commit()
-        raise HTTPException(400, f"Could not process file: {e}")
+    except Exception:
+       await db.rollback()
+       logger.exception("Upload processing failed (upload_id=%s)", upload_id)
+       rec = await db.get(UploadedFile, upload_id)
+       rec.status = "rejected"
+       rec.error_message = "Processing failed."
+       await db.commit()
+       raise HTTPException(400, "Could not process this file. Please check the format and try again.")
 
 
 @router.get("", response_model=list[UploadResponse])

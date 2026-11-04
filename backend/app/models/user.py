@@ -66,7 +66,7 @@ class ManagerInvitation(base):
     name = Column(String, nullable=False)
     region = Column(String, nullable=False)
     is_used = Column(Boolean, default=False)
-
+    
     # RM (Manager) ke OTP verification ke liye
     otp_code = Column(String, nullable=True)
     otp_expiry = Column(DateTime, nullable=True)

@@ -50,7 +50,7 @@ class ManagerSignUp(BaseModel):
     # Enforces min length in Pydantic; regex validation is handled in the endpoint logic
     password: str = Field(min_length=8, max_length=128)
     otp_code: str = Field(min_length=6, max_length=6, pattern=r"^[0-9]{6}$")
-
+    phone: str
     @field_validator("password")
     @classmethod
     def _check_pw(cls, v):

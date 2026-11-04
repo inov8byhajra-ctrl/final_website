@@ -146,7 +146,7 @@ def cfo_rejected_email(name: str) -> tuple[str, str, str]:
     return subject, text, _wrap("Registration Not Approved", body)
 
 def manager_invite_email(name: str, cfo_name: str, company: str, region: str, otp: str, email: str, minutes: int) -> tuple[str, str, str]:
-    verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/verify.html?email={quote(email)}"
+    verify_url = f"{settings.FRONTEND_URL.rstrip('/')}/manager-signup.html?email={quote(email)}"
     subject = f"{cfo_name or 'Your CFO'} invited you to InsightFlow - your verification code"
     
     text = (f"Hi {name},\n\n{cfo_name or 'Your CFO'} has invited you to join {company or 'their company'} on "

@@ -13,6 +13,7 @@ from app.core.limiter import limiter
 from app.core.security import create_access_token, get_password_hash, verify_password
 from app.models.user import ManagerInvitation, RoleEnum, User
 from app.schemas.user import ManagerSignUp
+from app.core.validators import clean_phone
 
 router = APIRouter()
 
@@ -31,6 +32,7 @@ def _token_payload(user: User, token: str) -> dict:
         "token_type": "bearer",
         "role": user.role.value if hasattr(user.role, "value") else user.role,
         "name": user.name or user.company_name or user.email,
+        "region": user.region,
         "email": user.email,
         "domain": user.company_domain,
     }
@@ -76,9 +78,15 @@ async def manager_signup(request: Request, manager_in: ManagerSignUp, db: AsyncS
         raise HTTPException(status_code=400, detail="This invitation is no longer valid.")
     if cfo.is_blocked:
         raise HTTPException(status_code=400, detail="Your company CFO account is currently blocked.")
-
-    new_manager = User(
+    try:
+       phone = clean_phone(manager_in.phone)
+    except ValueError as e:
+       raise HTTPException(status_code=400, detail=str(e))
+    if not phone:
+       raise HTTPException(status_code=400, detail="Phone number is required.")
+    new_manager = User(  
         email=email,
+        phone=phone,
         hashed_password=get_password_hash(manager_in.password),
         role=RoleEnum.manager,
         name=invitation.name,
