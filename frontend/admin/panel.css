@@ -43,3 +43,7 @@
 
 /* card opened from the dashboard "View" button */
 .ac.hl { border-color: var(--wine); box-shadow: 0 0 0 3px rgba(122, 28, 44, .12) }
+/* search bar styling*/
+.srch { width: 100%; padding: 11px 16px 11px 44px; margin-bottom: 16px; border: 1px solid #ead9d9; border-radius: 999px; outline: none; font: 600 .9rem var(--sans); background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237A1C2C' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M21 21l-4.3-4.3'/%3E%3C/svg%3E") no-repeat 16px center / 18px }
+.srch:focus { border-color: var(--wine); box-shadow: 0 0 0 3px rgba(122, 28, 44, .12) }
+.ac .acts { flex-wrap: wrap }

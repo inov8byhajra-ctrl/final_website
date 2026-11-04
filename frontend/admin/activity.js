@@ -109,6 +109,7 @@
         const r = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
         const ss = u.sessions.slice().sort((a, b) => b.start - a.start).slice(0, 40);
         $('#dw').innerHTML = `<div class="dw-h"><button class="dw-x" data-x="close" aria-label="Close">✕</button><span class="eye">${RN[u.role]} activity</span><h2>${esc(u.name)}</h2>
+        <div style="margin-top:12px"><button class="btn" data-block="${u.id}" style="padding:7px 16px;font-size:.85rem;color:#fff;border:none;background:${u.blocked ? '#2e7d32' : '#4A0E17'}">${u.blocked ? 'Unblock' : 'Block'} ${u.role === 'cfo' ? 'CFO + managers' : 'manager'}</button></div>
 <div>${u.online ? '<span class="dot on"></span><b>Online now</b>' : '<span class="dot"></span>Offline'} · <small style="color:var(--mut)">${esc(u.email)}</small></div></div>
 <div class="dw-b"><dl class="pf">${r('Company', esc(u.company || '—'))}${r(u.role === 'cfo' ? 'Role' : 'Region', u.role === 'cfo' ? 'CFO' : esc(u.region || '—'))}${r('Last login', fdt(u.lastLogin))}${r('Last logout', u.online ? 'Still signed in' : fdt(u.lastLogout))}</dl>
 <div class="tiles"><div><small>Sessions · ${RNG[days]}</small><b>${u.rs.length}</b></div><div><small>Time online</small><b>${dur(u.time)}</b></div><div><small>Files uploaded</small><b>${u.ru.length}</b></div><div><small>Avg session</small><b>${u.rs.length ? dur(u.time / u.rs.length) : '—'}</b></div></div>
@@ -130,7 +131,8 @@ ${s.online ? '<div class="ss-r"><span class="ap in" style="background:#e6f3ea">A
 
     function exportCsv() {
         const rows = [['Time', 'Name', 'Email', 'Role', 'Company', 'Region', 'Action', 'File', 'Size (bytes)']].concat(logEvents().map(e => { const u = U[e.email]; return [e.at, u.name, u.email, RN[u.role], u.company, u.region, e.type, e.file_name || '', e.file_size || ''] }));
-        const csv = rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
+        const safe = c => { c = String(c ?? ''); return /^[=+\-@\t\r]/.test(c) ? "'" + c : c };   // stop Excel formula injection
+        const csv = rows.map(r => r.map(c => `"${safe(c).replace(/"/g, '""')}"`).join(',')).join('\n');
         const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = 'insightflow-activity.csv'; a.click();
     }
 
@@ -172,7 +174,20 @@ ${s.online ? '<div class="ss-r"><span class="ap in" style="background:#e6f3ea">A
             $('#qIn').oninput = e => { q = e.target.value.trim().toLowerCase(); pageNo = 1; render() };
             $('#dwo').onclick = close;
             document.addEventListener('keydown', e => { if (e.key === 'Escape' && OPEN) close() });
-            $('#dw').addEventListener('click', e => { if (e.target.closest('[data-x]')) return close(); const m = e.target.closest('[data-open]'); if (m) { OPEN = m.dataset.open; renderPanel(); $('.dw-b').scrollTop = 0 } });
+            $('#dw').addEventListener('click', async e => {
+                const bk = e.target.closest('[data-block]');
+                if (bk) {
+                    const u = U[OPEN];
+                    const msg = (u.blocked ? 'Unblock ' : 'Block ') + u.name + '?' + (u.role === 'cfo' && !u.blocked ? ' All their managers will be blocked too.' : '');
+                    if (!confirm(msg)) return;
+                    bk.disabled = true;
+                    try { const r = await IF.api('/admin/users/' + +bk.dataset.block + '/toggle-block', { method: 'PATCH', auth: true }); IF.toast(r.message); await load(); }
+                    catch (ex) { IF.toast(ex.message, true); bk.disabled = false }
+                    return;
+                }
+                if (e.target.closest('[data-x]')) return close();
+                const m = e.target.closest('[data-open]'); if (m) { OPEN = m.dataset.open; renderPanel(); $('.dw-b').scrollTop = 0 }
+            });
             load(); setInterval(load, 30000);   // auto-refresh so "Online now" stays live
         });
 })();
