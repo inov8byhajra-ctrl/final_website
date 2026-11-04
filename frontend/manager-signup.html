@@ -8,8 +8,9 @@
 <h3>Join your team</h3><p class="s">Enter the email and 6-digit code from your CFO's invitation.</p>
 <form id="mf">
 <div class="f"><label for="me">Company email</label><input id="me" type="email" required placeholder="name@company.com"></div>
+<div class="f"><label for="rph">Phone number</label><input id="rph" type="tel" required inputmode="tel" placeholder="+92 300 1234567"></div>
 <div class="f"><label for="mo">Verification code</label><input id="mo" required inputmode="numeric" maxlength="6" pattern="\d{6}" placeholder="6-digit code"></div>
-<div class="f"><label for="m1">Password</label><input id="m1" type="password" required minlength="8" placeholder="Choose a password"></div>
+<div class="f"><label for="m1">Password</label><input id="m1" type="password" required minlength="8" placeholder="8+ chars, uppercase, number, symbol (@$!%*?&)"></div>
 <div class="f"><label for="m2">Confirm password</label><input id="m2" type="password" required placeholder="Repeat password"></div>
 <p class="err" id="er" role="alert"></p><button class="btn solid">Create account</button></form>
 </div></div><script src="js/common.js"></script><script src="js/api.js"></script><script src="js/msignup.js"></script></body></html>

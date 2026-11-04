@@ -10,10 +10,17 @@
     function homeFor(role) { return role === 'admin' ? '/admin/admin.html' : '/home.html' }
 
     /* session object saved after every successful login / manager verification */
-    function saveLogin(data, keep) {
-        setSession({ n: data.name || data.email, e: data.email, role: data.role, token: data.access_token, k: keep === false ? 0 : 1 });
-        try { sessionStorage.setItem('if_tab', '1') } catch (e) { }
-    }
+function saveLogin(data, keep) {
+    setSession({
+        n: data.name || data.email,
+        e: data.email,
+        role: data.role,
+        region: data.region || '',
+        token: data.access_token,
+        k: keep === false ? 0 : 1
+    });
+    try { sessionStorage.setItem('if_tab', '1') } catch (e) { }
+}
 
     function tokenExpired(t) {
         try {
@@ -80,6 +87,7 @@
     function docEsc(e) { if (e.key === 'Escape') { e.stopImmediatePropagation(); closeDoc() } }
     function showDoc(url, type) {
         closeDoc();
+        if (!/^(application\/pdf|image\/(png|jpeg))$/.test(type || '')) { URL.revokeObjectURL(url); toast('Unsupported document type.', true); return }
         var isImg = /^image\//.test(type || ''), o = document.createElement('div');
         o.id = 'docov'; o.className = 'docov'; o.dataset.u = url;
         o.innerHTML = '<div class="docbox" role="dialog" aria-modal="true" aria-label="License document"><div class="doch"><b>License document</b><button type="button" class="docx" aria-label="Close">\u2715</button></div><div class="docb">' + (isImg ? '<img alt="License document" src="' + url + '">' : '<iframe title="License document" src="' + url + '"></iframe>') + '</div></div>';

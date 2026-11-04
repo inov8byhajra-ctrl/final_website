@@ -19,7 +19,9 @@ async function submit(form, errEl, work) {
   errEl.textContent = '';
   btn.disabled = true; btn.textContent = 'Please wait…';
   try { await work() }
-  catch (e) { errEl.textContent = e.message }
+  catch (e) {
+   errEl.innerHTML = esc(e.message).replace(/(https?:\/\/\S*renew\S*)/, '<a href="$1">Renew your license</a>');
+  }
   finally { btn.disabled = false; btn.textContent = label }
 }
 
@@ -34,6 +36,8 @@ function tab(name) {
   $('#ind').style.transform = register ? 'translateX(100%)' : '';
 }
 tab(params.get('tab') === 'register' ? 'register' : 'login');
+const kicked = sessionStorage.getItem('if_kicked');
+if (kicked) { sessionStorage.removeItem('if_kicked'); $('#le2').textContent = kicked; }
 
 /* ---------- License upload (click or drag & drop) ---------- */
 const dropBox = $('#dz'), fileInput = $('#rd'), dropText = $('#dt'), dropHtml = dropText.innerHTML;
@@ -82,6 +86,7 @@ $('#rf').onsubmit = e => {
 
   const fd = new FormData();
   fd.append('name', v('#rn').trim());
+  fd.append('phone', v('#rph').trim());
   fd.append('company_name', v('#rco').trim());
   fd.append('email', v('#re').trim());
   fd.append('license_number', v('#rl').trim());

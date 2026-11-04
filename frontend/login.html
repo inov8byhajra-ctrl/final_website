@@ -30,7 +30,7 @@
         <p class="s">Sign in with your email and password.</p>
         <form id="lf">
           <div class="f"><label for="le">Email</label><input id="le" type="email" required placeholder="name@company.com"></div>
-          <div class="f"><label for="lw">Password</label><input id="lw" type="password" required minlength="6"></div>
+          <div class="f"><label for="lw">Password</label><input id="lw" type="password" required></div>
           <div class="kr">
             <label class="ks" for="lk"><input id="lk" type="checkbox" checked><span class="tg"></span>Keep me signed in</label>
             <a class="fg2" onclick="tab('forgot')" tabindex="0" role="button">Forgot password?</a>
@@ -38,6 +38,7 @@
           <p class="err" id="le2" role="alert"></p>
           <button class="btn solid">Sign in</button>
         </form>
+        <div class="sw">License expired? <a href="renew.html">Renew your license</a></div>
         <div class="sw">New to InsightFlow? <a onclick="tab('register')">Create an account</a></div>
       </div>
 
@@ -47,6 +48,7 @@
         <p class="s">Add your license details so we can verify you.</p>
         <form id="rf">
           <div class="f"><label for="rn">Full name</label><input id="rn" required placeholder="Your full name"></div>
+          <div class="f"><label for="rph">Phone number</label><input id="rph" type="tel" required inputmode="tel" placeholder="+92 300 1234567"></div>
           <div class="f"><label for="rco">Company name</label><input id="rco" required placeholder="Your company name"></div>
           <div class="f"><label for="re">Email</label><input id="re" type="email" required placeholder="name@company.com"></div>
           <div class="f"><label for="rl">License number</label><input id="rl" required placeholder="e.g. LIC-2024-58213"></div>
@@ -62,7 +64,7 @@
             </div>
           </div>
           <div class="g2">
-            <div class="f"><label for="rw">Password</label><div class="pw"><input id="rw" type="password" required minlength="6" placeholder="At least 6 characters"><button type="button" class="sh" data-t="rw">Show</button></div></div>
+            <div class="f"><label for="rw">Password</label><div class="pw"><input id="rw" type="password" required minlength="8" placeholder="At least 8 characters Must included numerics and symbols"><button type="button" class="sh" data-t="rw">Show</button></div></div>
             <div class="f"><label for="rc">Confirm password</label><div class="pw"><input id="rc" type="password" required placeholder="Repeat your password"><button type="button" class="sh" data-t="rc">Show</button></div></div>
           </div>
           <p class="err" id="re2" role="alert"></p>
@@ -80,6 +82,7 @@
     <p class="err" id="fe2" role="alert"></p>
     <button class="btn solid">Send reset link</button>
   </form>
+  
   <div class="sw">Remembered it? <a onclick="tab('login')">Back to sign in</a></div>
 </div>
     </div>

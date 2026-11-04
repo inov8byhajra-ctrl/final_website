@@ -91,6 +91,7 @@ const NAMES = { PL: 'Profit & Loss', Doctor: 'Data Doctor' };   // names that di
 
 function signOut() {
   localStorage.removeItem('if_session');
+  try { sessionStorage.removeItem('if_tab') } catch (e) {}
   location.href = 'index.html';
 }
 
@@ -118,7 +119,8 @@ function mobileNav() {
   addEventListener('keydown', e => { if (e.key === 'Escape') set(false); });
   addEventListener('resize', () => { if (innerWidth > 900) set(false); });
 }
-
+// page() function se PEHLE (top level par)
+const ROLE_LABEL = { cfo: 'CFO', manager: 'Regional Manager', admin: 'Admin' };
 
 function page(key, render, init) {
   const user = st.get('if_session', null);
@@ -130,9 +132,11 @@ function page(key, render, init) {
   const links = PAGES.map(([k, file]) =>
     `<a href="${file}" class="${k === key ? 'on' : ''}" ${k === key ? 'aria-current="page"' : ''}>${ic(k)}${NAMES[k] || k}</a>`).join('');
 
+  const roleTxt = (ROLE_LABEL[user.role] || '') + (user.role === 'manager' && user.region ? ' · ' + user.region : '');
+
   $('#sn').innerHTML =
     `<a class="brand" href="index.html"><img class="logo" src="images/logo.png" alt=""><span>Insight<b>Flow</b></span></a>` + links +
-    `<div class="me"><b>${esc(user.n)}</b>${esc(user.e)}<br><a onclick="signOut()" tabindex="0" role="button">Sign out</a></div>`;
+    `<div class="me"><b>${esc(user.n)}</b>${esc(roleTxt)}<br><a onclick="signOut()" tabindex="0" role="button">Sign out</a></div>`;
 
   mobileNav();
 
@@ -141,10 +145,31 @@ function page(key, render, init) {
 
   gsap.from('#pg > *,#pg .k,#pg .pn', { opacity: 0, y: 18, duration: .5, stagger: .06, ease: 'back.out(1.4)', clearProps: 'all' });
   if (init) init(user);
+  startSessionGuard();
   ballFx();
   fx3d();
 }
-
+function startSessionGuard() {
+  if (startSessionGuard.on) return;
+  startSessionGuard.on = true;
+  const check = async () => {
+    const s = st.get('if_session', null);
+    if (!s || !s.token) return;
+    try {
+      const res = await fetch(((window.IF && IF.API_BASE) || '') + '/api/users/me', { headers: { Authorization: 'Bearer ' + s.token } });
+      if (res.status === 401 || res.status === 403) {
+        let msg = 'Your session has ended. Please sign in again.';
+        try { msg = (await res.json()).detail || msg } catch (e) {}
+        sessionStorage.setItem('if_kicked', msg);
+        localStorage.removeItem('if_session');
+        location.replace('login.html');
+      }
+    } catch (e) { /* server offline: ignore */ }
+  };
+  check();
+  setInterval(check, 60000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+}
 
 /* ---------- 4. 3D scenes ---------- */
 

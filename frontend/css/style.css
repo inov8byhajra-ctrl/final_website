@@ -446,6 +446,8 @@ table { width: 100%; border-collapse: collapse; font-size: .92rem }
 th { text-align: left; color: var(--mut); font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--line); white-space: nowrap }
 td { padding: 11px 12px; border-bottom: 1px solid var(--line); white-space: nowrap }
 td.r, th.r { text-align: right }
+.tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.tags .tag { white-space: nowrap; }
 .tag { padding: 3px 12px; border-radius: 99px; background: var(--blush); font-size: .75rem; font-weight: 700; color: var(--wine2) }
 .rl { display: inline-block; padding: 2px 12px; border-radius: 99px; font-size: .72rem; font-weight: 700; background: var(--wine); color: #fff }
 .rl.m { background: var(--acc) }
