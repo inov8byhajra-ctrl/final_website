@@ -4,7 +4,7 @@ from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 
 from fastapi import (
-    APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect, status,
+    APIRouter, BackgroundTasks, Depends, HTTPException, WebSocket, WebSocketDisconnect, status,
 )
 from fastapi.responses import FileResponse
 from jose import JWTError, jwt
@@ -89,6 +89,8 @@ async def _ws_is_admin(token: str | None) -> bool:
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email = payload.get("sub")
+        if payload.get("type"):          # password-reset token is not a login token
+            return False
     except JWTError:
         return False
     if not email:
@@ -206,6 +208,7 @@ async def download_cfo_license(
 
 @router.post("/admin/approve-license", tags=["Admin Operations"])
 async def admin_approve_license(
+    background: BackgroundTasks,
     approval: AdminApproveLicense,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -229,8 +232,8 @@ async def admin_approve_license(
         if license_name:
             (UPLOAD_DIR / license_name).unlink(missing_ok=True)
         subject, text, html_body = cfo_rejected_email(display_name)
-        sent = await send_email(cfo_email, subject, text, html_body)
-        return {"message": "License invalid. CFO registration rejected and removed.", "email_sent": sent}
+        background.add_task(send_email, cfo_email, subject, text, html_body)
+        return {"message": "License invalid. CFO registration rejected and removed.", "email_sent": True}
 
     if cfo.is_approved:
         return {"message": "CFO was already approved.", "email_sent": False}
@@ -249,9 +252,9 @@ async def admin_approve_license(
 
     login_url = f"{settings.FRONTEND_URL.rstrip('/')}/login.html?tab=login"
     subject, text, html_body = cfo_approved_email(display_name, login_url)
-    sent = await send_email(cfo_email, subject, text, html_body)
+    background.add_task(send_email, cfo_email, subject, text, html_body)
     _run_expiry_check_soon()
-    return {"message": "CFO approved.", "email_sent": sent}
+    return {"message": "CFO approved.", "email_sent": True}
 
 
 # Replaced deletion with block/unblock feature to preserve company and manager data
@@ -512,6 +515,7 @@ async def download_renewal_license(
 
 @router.post("/admin/renewals/{req_id}/decision", tags=["Admin Operations"])
 async def decide_renewal(
+    background: BackgroundTasks,
     req_id: int,
     body: RenewalDecision,
     current_user: User = Depends(get_current_user),
@@ -570,11 +574,11 @@ async def decide_renewal(
 
         if old_file and old_file != Path(req.trade_license_url or "").name:
             (UPLOAD_DIR / old_file).unlink(missing_ok=True)
-        sent = await send_email(
-            cfo.email, *renewal_approved_email(name, req.license_expiry_date.isoformat(), f"{base_url}/login.html?tab=login")
+        background.add_task(
+            send_email, cfo.email, *renewal_approved_email(name, req.license_expiry_date.isoformat(), f"{base_url}/login.html?tab=login")
         )
         _run_expiry_check_soon()
-        return {"message": "Renewal approved. CFO unblocked.", "email_sent": sent}
+        return {"message": "Renewal approved. CFO unblocked.", "email_sent": True}
 
     reason = (body.reason or "").strip() or "The submitted license could not be verified."
     license_name = Path(req.trade_license_url).name if req.trade_license_url else None
@@ -585,8 +589,8 @@ async def decide_renewal(
     await db.commit()
     if license_name:
         (UPLOAD_DIR / license_name).unlink(missing_ok=True)
-    sent = await send_email(cfo.email, *renewal_rejected_email(name, reason, f"{base_url}/renew.html"))
-    return {"message": "Renewal rejected. CFO stays blocked.", "email_sent": sent}
+    background.add_task(send_email, cfo.email, *renewal_rejected_email(name, reason, f"{base_url}/renew.html"))
+    return {"message": "Renewal rejected. CFO stays blocked.", "email_sent": True}
 
 
 @router.get("/admin/expiring-soon", tags=["Admin Operations"])

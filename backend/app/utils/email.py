@@ -7,7 +7,6 @@ import html
 from email.message import EmailMessage
 from urllib.parse import quote
 import aiosmtplib
-import html
 from app.core.config import settings
 
 # InsightFlow Brand Colors

@@ -2,20 +2,24 @@ from datetime import datetime, timedelta
 from passlib.context import CryptContext
 from jose import jwt
 from app.core.config import settings
+from fastapi.concurrency import run_in_threadpool
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+def _clip(p: str) -> bytes:
+    return p.encode("utf-8")[:72]          # bcrypt limit is 72 BYTES
+
 def verify_password(plain_password: str, hashed_password: str):
-    # Pakka hal: Truncate to 72 chars to prevent bcrypt crashes
-    if len(plain_password) > 72:
-        plain_password = plain_password[:72]
-    return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(_clip(plain_password), hashed_password)
 
 def get_password_hash(password: str):
-    # Pakka hal: Truncate to 72 chars to prevent bcrypt crashes
-    if len(password) > 72:
-        password = password[:72]
-    return pwd_context.hash(password)
+    return pwd_context.hash(_clip(password))
+
+async def averify_password(p: str, h: str) -> bool:
+    return await run_in_threadpool(verify_password, p, h)
+
+async def ahash_password(p: str) -> str:
+    return await run_in_threadpool(get_password_hash, p)
 
 def create_access_token(data: dict):
     to_encode = data.copy()

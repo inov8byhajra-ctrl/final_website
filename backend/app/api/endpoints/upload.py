@@ -18,6 +18,22 @@ UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "data"
 MAX_SIZE = 20 * 1024 * 1024  # 20 MB
 XLSX_SIG = b"PK\x03\x04"
 XLS_SIG = b"\xd0\xcf\x11\xe0"
+import io, zipfile
+MAX_UNZIPPED = 100 * 1024 * 1024
+MAX_ZIP_ENTRIES = 2000
+
+def _safe_xlsx(content: bytes) -> bool:
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as z:
+            infos = z.infolist()
+            names = {i.filename for i in infos}
+            if len(infos) > MAX_ZIP_ENTRIES: return False
+            if "[Content_Types].xml" not in names: return False
+            if not any(n.startswith("xl/") for n in names): return False
+            if sum(i.file_size for i in infos) > MAX_UNZIPPED: return False
+        return True
+    except zipfile.BadZipFile:
+        return False
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +67,7 @@ async def upload_file(
     if len(content) > MAX_SIZE:
         raise HTTPException(413, "File too large (max 20 MB).")
     
-    if ext == ".xlsx" and not content.startswith(XLSX_SIG):
+    if ext == ".xlsx" and not (content.startswith(XLSX_SIG) and _safe_xlsx(content)):
         raise HTTPException(400, "This file is not a valid XLSX file.")
     if ext == ".xls" and not content.startswith(XLS_SIG):
         raise HTTPException(400, "This file is not a valid XLS file.")

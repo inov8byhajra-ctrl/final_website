@@ -1,5 +1,7 @@
+import asyncio
 import json
-import re
+import logging
+import os
 import secrets
 import string
 import uuid
@@ -7,7 +9,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from fastapi import (
-    APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status,
+    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile, status,
 )
 from pydantic import EmailStr, TypeAdapter, ValidationError
 from sqlalchemy import func, update, or_
@@ -17,9 +19,9 @@ from sqlalchemy.future import select
 from app.core.free_domains import FREE_DOMAINS
 from app.api.dependencies import get_current_user
 from app.core.config import settings, local_now
-from app.core.database import get_db
+from app.core.database import get_db, AsyncSessionLocal
 from app.core.limiter import limiter
-from app.core.security import get_password_hash, verify_password
+from app.core.security import ahash_password, averify_password
 from app.models.user import (
     ManagerInvitation, RoleEnum, User, Notification, BlacklistedCompany, RenewalRequest,
 )
@@ -29,7 +31,9 @@ from app.utils.email import manager_invite_email, send_email, admin_new_cfo_regi
 from app.utils.websockets import notification_manager
 
 router = APIRouter()
+log = logging.getLogger(__name__)
 
+IS_DEV = os.getenv("APP_ENV", "dev") == "dev"
 UPLOAD_DIR = Path(__file__).resolve().parents[3] / "uploads" / "licenses"
 MAX_LICENSE_BYTES = 5 * 1024 * 1024
 LICENSE_SIGNATURES = {
@@ -57,6 +61,27 @@ def _exists_message(u: User) -> str:
     return "An account with this email already exists. Please sign in, or use 'Forgot password'."
 
 
+async def _email_admins(emails, subject, text, html_body):
+    """Runs AFTER the response is sent, so signup stays fast."""
+    results = await asyncio.gather(
+        *(send_email(e, subject, text, html_body) for e in emails), return_exceptions=True
+    )
+    for e, r in zip(emails, results):
+        if isinstance(r, Exception) or r is False:
+            log.warning("Admin notification email to %s failed: %r", e, r)
+
+
+async def _send_invite(invite_id, to, subject, text, html_body):
+    """Runs AFTER the response. If the mail fails, the invitation is cancelled."""
+    if not await send_email(to, subject, text, html_body):
+        async with AsyncSessionLocal() as s:
+            inv = await s.get(ManagerInvitation, invite_id)
+            if inv:
+                inv.is_used = True
+                await s.commit()
+        log.warning("Invite email to %s failed; invitation %s cancelled", to, invite_id)
+
+
 async def _store_license_file(license_file: UploadFile) -> str:
     """Validate + save an uploaded license; returns the stored file name."""
     ext = Path(license_file.filename or "").suffix.lower()
@@ -77,6 +102,7 @@ async def _store_license_file(license_file: UploadFile) -> str:
 @limiter.limit("10/hour")
 async def cfo_signup(
     request: Request,
+    background: BackgroundTasks,
     email: str = Form(...),
     password: str = Form(...),
     name: str = Form(...),
@@ -89,18 +115,17 @@ async def cfo_signup(
     db: AsyncSession = Depends(get_db),
 ):
     email = _norm(email)
-    
+
     try:
         _email_adapter.validate_python(email)
     except ValidationError:
         raise HTTPException(status_code=400, detail="Please enter a valid email address.")
-    
+
     try:
         name = clean_name(name, "Full name")
         company_name = clean_company(company_name)
         license_number = clean_license(license_number)
         phone = clean_phone(phone)
-        
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     if not phone:
@@ -129,7 +154,7 @@ async def cfo_signup(
     if license_expiry_date <= current_date:
         raise HTTPException(status_code=400, detail="This license has already expired. Please use a valid license.")
     domain = email.split("@")[1]
-    
+
     conditions = [
         func.lower(BlacklistedCompany.email) == email,
         BlacklistedCompany.license_number == license_number,
@@ -141,11 +166,12 @@ async def cfo_signup(
     if bl.scalars().first():
         raise HTTPException(status_code=403, detail="This company cannot register on InsightFlow.")
 
+    hashed = await ahash_password(password)          # off the event loop
     stored_name = await _store_license_file(license_file)
 
     new_cfo = User(
         email=email,
-        hashed_password=get_password_hash(password),
+        hashed_password=hashed,
         role=RoleEnum.cfo,
         name=name,
         phone=phone,
@@ -158,7 +184,7 @@ async def cfo_signup(
         is_verified=0,
         is_approved=False,
     )
-    
+
     try:
         db.add(new_cfo)
         await db.commit()
@@ -175,48 +201,30 @@ async def cfo_signup(
 
     # The CFO is saved from here on. Notifications/emails are best-effort and must
     # never delete the license file or fail the registration.
+    notif_msg = f"New CFO registered: {name.strip()} ({company_name.strip()}). Please review documents."
     try:
-        # 1. Query all admin users from database
         admin_result = await db.execute(select(User).filter(User.role == RoleEnum.admin))
         admins = admin_result.scalars().all()
-        
-        notif_msg = f"New CFO registered: {name.strip()} ({company_name.strip()}). Please review documents."
+
         dashboard_url = f"{settings.FRONTEND_URL.rstrip('/')}/admin/admin.html"
 
-        # 2. Add in-app notifications for each admin found
         for admin in admins:
-            new_notif = Notification(
-                admin_id=admin.id,
-                message=notif_msg,
-                is_read=False
-            )
-            db.add(new_notif)
-
+            db.add(Notification(admin_id=admin.id, message=notif_msg, is_read=False))
         await db.commit()
 
-        # 3. Fallback mechanism: Ensure email gets dispatched even if admins list is empty or role mismatch occurs
-        admin_emails = [admin.email for admin in admins if admin.email]
+        admin_emails = [a.email for a in admins if a.email]
         if not admin_emails and getattr(settings, "FIRST_SUPERUSER", None):
             admin_emails = [settings.FIRST_SUPERUSER]
 
         subject, text_body, html_body = admin_new_cfo_registration_email(
-            cfo_name=name.strip(),
-            company=company_name.strip(),
-            dashboard_url=dashboard_url
+            cfo_name=name.strip(), company=company_name.strip(), dashboard_url=dashboard_url
         )
-
-        # 4. Safe email loop: Prevents a single SMTP error from rolling back the entire registration
-        for admin_email in admin_emails:
-            try:
-                sent = await send_email(admin_email, subject, text_body, html_body)
-                print(f"[Admin Email Log] Notification sent to {admin_email}: {sent}")
-            except Exception as mail_err:
-                print(f"[Admin Email Warning] Could not send notification to {admin_email}: {mail_err}")
+        # sent after the response -> user does not wait for Gmail
+        background.add_task(_email_admins, admin_emails, subject, text_body, html_body)
 
     except Exception as notify_err:
         await db.rollback()
-        print(f"[Signup Warning] CFO {new_cfo_id} saved but notifying admins failed: {notify_err}")
-        notif_msg = f"New CFO registered: {name.strip()} ({company_name.strip()}). Please review documents."
+        log.warning("CFO %s saved but notifying admins failed: %s", new_cfo_id, notify_err)
 
     try:
         await notification_manager.broadcast(json.dumps({
@@ -224,14 +232,15 @@ async def cfo_signup(
             "message": notif_msg,
         }))
     except Exception as ws_err:
-        print(f"[Signup Warning] WebSocket broadcast failed: {ws_err}")
+        log.warning("WebSocket broadcast failed: %s", ws_err)
 
     return {
         "message": "Registration received. You will get an email as soon as an admin approves your account.",
         "cfo_id": new_cfo_id,
     }
 
-# NEW: public renewal request (a blocked CFO cannot log in, so email + password are sent in the form)
+
+# public renewal request (a blocked CFO cannot log in, so email + password are sent in the form)
 @router.post("/cfo/renew", tags=["CFO operation"])
 @limiter.limit("5/hour")
 async def cfo_renew(
@@ -252,7 +261,7 @@ async def cfo_renew(
 
     res = await db.execute(select(User).filter(func.lower(User.email) == email, User.role == RoleEnum.cfo))
     cfo = res.scalars().first()
-    if not cfo or not verify_password(password, cfo.hashed_password):
+    if not cfo or not await averify_password(password, cfo.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
     if not cfo.is_approved:
         raise HTTPException(status_code=400, detail="Your account is still pending approval.")
@@ -312,10 +321,14 @@ async def cfo_renew(
             db.add(Notification(admin_id=admin.id, message=notif_msg, is_read=False))
         await db.commit()
     except Exception:
+        await db.rollback()
         (UPLOAD_DIR / stored_name).unlink(missing_ok=True)
         raise
 
-    await notification_manager.broadcast(json.dumps({"type": "renewal_requested", "message": notif_msg}))
+    try:
+        await notification_manager.broadcast(json.dumps({"type": "renewal_requested", "message": notif_msg}))
+    except Exception as ws_err:
+        log.warning("WebSocket broadcast failed: %s", ws_err)
     return {"message": "Renewal request submitted. You will get an email once the admin reviews it."}
 
 
@@ -323,6 +336,7 @@ async def cfo_renew(
 @limiter.limit("30/hour")
 async def invite_manager(
     request: Request,
+    background: BackgroundTasks,
     invite: InviteManager,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -337,7 +351,9 @@ async def invite_manager(
         raise HTTPException(status_code=400, detail="Invalid CFO data. Domain missing.")
 
     mgr_email = _norm(invite.email)
-    
+    if "@" not in mgr_email:
+        raise HTTPException(status_code=400, detail="Please enter a valid email address.")
+
     rm_domain = mgr_email.split("@")[1]
     if rm_domain != current_user.company_domain.lower():
         raise HTTPException(
@@ -378,20 +394,14 @@ async def invite_manager(
         email=mgr_email,
         minutes=OTP_MINUTES,
     )
-    sent = await send_email(mgr_email, subject, text, html_body)
-    if not sent:
-        new_invite.is_used = True
-        await db.commit()
-        raise HTTPException(
-            status_code=502,
-            detail="The invitation could not be emailed. Please check the SMTP settings and try again.",
-        )
+    # sent after the response -> CFO does not wait for Gmail
+    background.add_task(_send_invite, new_invite.id, mgr_email, subject, text, html_body)
 
     resp = {
-        "message": "Invitation sent. A verification code has been emailed to the manager.",
+        "message": "Invitation sent. A verification code is being emailed to the manager.",
         "email": mgr_email,
         "expires_in_minutes": OTP_MINUTES,
     }
-    if not settings.smtp_enabled:
+    if not settings.smtp_enabled and IS_DEV:      # never leak the OTP in production
         resp["dev_otp"] = otp_code
     return resp

@@ -1,10 +1,11 @@
 from datetime import datetime
-from fastapi import APIRouter, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
+from app.core.limiter import limiter
 from app.models.user import User, RoleEnum, ActivityEvent, UserPresence
 
 router = APIRouter()
@@ -12,9 +13,9 @@ ALLOWED = {"login", "logout", "upload"}
 
 
 class ActivityLog(BaseModel):
-    type: str
-    file_name: str | None = None
-    file_size: int | None = None
+    type: str = Field(max_length=20)
+    file_name: str | None = Field(None, max_length=255)
+    file_size: int | None = Field(None, ge=0, le=2_000_000_000)
 
 
 async def _touch(db: AsyncSession, user_id: int):
@@ -26,7 +27,8 @@ async def _touch(db: AsyncSession, user_id: int):
 
 
 @router.post("/api/activity/log", tags=["Activity"])
-async def log_activity(body: ActivityLog, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@limiter.limit("60/minute")
+async def log_activity(request: Request, body: ActivityLog, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if current_user.role == RoleEnum.admin or body.type not in ALLOWED:
         return {"ok": False}
     db.add(ActivityEvent(
@@ -39,7 +41,8 @@ async def log_activity(body: ActivityLog, current_user: User = Depends(get_curre
 
 
 @router.post("/api/activity/ping", tags=["Activity"])
-async def ping(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+@limiter.limit("120/minute")
+async def ping(request: Request, current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     if current_user.role == RoleEnum.admin:
         return {"ok": False}
     await _touch(db, current_user.id)

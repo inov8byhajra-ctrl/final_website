@@ -4,16 +4,19 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.core.config import settings, local_now
 from app.core.database import get_db
 from app.core.limiter import limiter
-from app.core.security import create_access_token, get_password_hash, verify_password
+from app.core.security import (
+    create_access_token, get_password_hash, averify_password, ahash_password,
+)
 from app.models.user import ManagerInvitation, RoleEnum, User
 from app.schemas.user import ManagerSignUp
-from app.core.validators import clean_phone
+from app.core.validators import clean_phone, password_problem
 
 router = APIRouter()
 
@@ -42,6 +45,17 @@ def _token_payload(user: User, token: str) -> dict:
 @limiter.limit("10/minute")
 async def manager_signup(request: Request, manager_in: ManagerSignUp, db: AsyncSession = Depends(get_db)):
     email = _norm(manager_in.email)
+
+    # validate cheap things first (no DB, no hashing)
+    try:
+        phone = clean_phone(manager_in.phone)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not phone:
+        raise HTTPException(status_code=400, detail="Phone number is required.")
+    problem = password_problem(manager_in.password)
+    if problem:
+        raise HTTPException(status_code=400, detail=problem)
 
     exists = await db.execute(select(User).filter(func.lower(User.email) == email))
     if exists.scalars().first():
@@ -78,16 +92,11 @@ async def manager_signup(request: Request, manager_in: ManagerSignUp, db: AsyncS
         raise HTTPException(status_code=400, detail="This invitation is no longer valid.")
     if cfo.is_blocked:
         raise HTTPException(status_code=400, detail="Your company CFO account is currently blocked.")
-    try:
-       phone = clean_phone(manager_in.phone)
-    except ValueError as e:
-       raise HTTPException(status_code=400, detail=str(e))
-    if not phone:
-       raise HTTPException(status_code=400, detail="Phone number is required.")
-    new_manager = User(  
+
+    new_manager = User(
         email=email,
         phone=phone,
-        hashed_password=get_password_hash(manager_in.password),
+        hashed_password=await ahash_password(manager_in.password),
         role=RoleEnum.manager,
         name=invitation.name,
         region=invitation.region,
@@ -100,7 +109,11 @@ async def manager_signup(request: Request, manager_in: ManagerSignUp, db: AsyncS
     invitation.is_used = True
     invitation.is_verified = True
     db.add(new_manager)
-    await db.commit()
+    try:
+        await db.commit()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(status_code=400, detail="An account with this email already exists. Please sign in.")
     await db.refresh(new_manager)
 
     token = create_access_token(data={"sub": new_manager.email})
@@ -117,9 +130,9 @@ async def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends
     user = result.scalars().first()
 
     if not user:
-        verify_password(form_data.password, _DUMMY_HASH)
+        await averify_password(form_data.password, _DUMMY_HASH)
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
-    if not verify_password(form_data.password, user.hashed_password):
+    if not await averify_password(form_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password.")
 
     now = local_now()
